@@ -13,7 +13,7 @@ func RegisterBackend(cmd *cobra.Command) {
 	cmd.RunE = instance.runE
 
 	cmd.Flags().IntVarP(&instance.size, "size", "s", sizeDefault, fmt.Sprintf(
-		"entropy bits, must be [%v, %v] and a multiple of %v", sizeMin, sizeMax, sizeStep))
+		"entropy bits, must be within [%v, %v] and a multiple of %v", sizeMin, sizeMax, sizeStep))
 }
 
 const (

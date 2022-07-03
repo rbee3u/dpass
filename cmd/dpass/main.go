@@ -18,20 +18,11 @@ func main() {
 }
 
 func rootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:           "dpass",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		Args:          cobra.NoArgs,
-	}
+	cmd := &cobra.Command{Use: "dpass", Args: cobra.NoArgs}
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 
-	cmd.AddCommand(
-		encryptCmd(),
-		decryptCmd(),
-		splitCmd(),
-		combineCmd(),
-		qrcodeCmd(),
-	)
+	cmd.AddCommand(encryptCmd(), decryptCmd(), splitCmd(), combineCmd(), qrcodeCmd())
 
 	return cmd
 }

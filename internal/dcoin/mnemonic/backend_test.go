@@ -8,6 +8,12 @@ import (
 )
 
 func TestCreateEntropyRandomly(t *testing.T) {
+	for size := sizeMin; size <= sizeMax; size += sizeStep {
+		if _, err := createEntropyRandomly(size); err != nil {
+			t.Fatalf("failed to create entropy randomly: %v", err)
+		}
+	}
+
 	var b []byte
 	for i := 0; i < 1000000; i++ {
 		entropy, err := createEntropyRandomly(sizeDefault)

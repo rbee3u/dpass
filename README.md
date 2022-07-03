@@ -9,6 +9,7 @@ go install github.com/rbee3u/dpass/cmd/dpass@latest
 
 ### 配置自动补全
 ```shell
+# zsh 示例
 dpass completion zsh > "${fpath[1]}/_dpass"
 ```
 
@@ -21,6 +22,7 @@ go install github.com/rbee3u/dpass/cmd/dcoin@latest
 
 ### 配置自动补全
 ```shell
+# zsh 示例
 dcoin completion zsh > "${fpath[1]}/_dcoin"
 ```
 
@@ -39,7 +41,7 @@ dcoin mnemonic | dpass encrypt | dpass split -o wallet-cold -n 9 -m 4
 # 3. 解密得到助记词明文
 # 4. 使用助记词计算BTC地址
 # 5. 将BTC地址转换成二维码(用于导入观察钱包)
-cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin btc | dpass qrcode
+cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin bitcoin | dpass qrcode
 ```
 
 ```shell
@@ -48,7 +50,7 @@ cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin btc | dpass qrcode
 # 3. 解密得到助记词明文
 # 4. 使用助记词计算BTC私钥
 # 5. 将BTC私钥转换成二维码(用于导入冷钱包)
-cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin btc --secret | dpass qrcode
+cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin bitcoin --secret | dpass qrcode
 ```
 
 当然 dpass 和 dcoin 能做的事情远不止上面，更多的使用场景欢迎高端玩家尽情探索。

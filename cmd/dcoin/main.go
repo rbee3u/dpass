@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rbee3u/dpass/internal/dcoin/btc"
-	"github.com/rbee3u/dpass/internal/dcoin/eth"
+	"github.com/rbee3u/dpass/internal/dcoin/bitcoin"
+	"github.com/rbee3u/dpass/internal/dcoin/ethereum"
 	"github.com/rbee3u/dpass/internal/dcoin/mnemonic"
 	"github.com/spf13/cobra"
 )
@@ -18,18 +18,11 @@ func main() {
 }
 
 func rootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:           "dcoin",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		Args:          cobra.NoArgs,
-	}
+	cmd := &cobra.Command{Use: "dcoin", Args: cobra.NoArgs}
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 
-	cmd.AddCommand(
-		mnemonicCmd(),
-		btcCmd(),
-		ethCmd(),
-	)
+	cmd.AddCommand(mnemonicCmd(), bitcoinCmd(), ethereumCmd())
 
 	return cmd
 }
@@ -42,18 +35,18 @@ func mnemonicCmd() *cobra.Command {
 	return cmd
 }
 
-func btcCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "btc", Args: cobra.NoArgs}
+func bitcoinCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "bitcoin", Args: cobra.NoArgs}
 
-	btc.RegisterBackend(cmd)
+	bitcoin.RegisterBackend(cmd)
 
 	return cmd
 }
 
-func ethCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "eth", Args: cobra.NoArgs}
+func ethereumCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "ethereum", Args: cobra.NoArgs}
 
-	eth.RegisterBackend(cmd)
+	ethereum.RegisterBackend(cmd)
 
 	return cmd
 }
