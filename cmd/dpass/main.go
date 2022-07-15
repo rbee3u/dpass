@@ -22,47 +22,13 @@ func rootCmd() *cobra.Command {
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 
-	cmd.AddCommand(encryptCmd(), decryptCmd(), splitCmd(), combineCmd(), qrcodeCmd())
-
-	return cmd
-}
-
-func encryptCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "encrypt", Args: cobra.NoArgs}
-
-	aes256.RegisterEncryptBackend(cmd)
-
-	return cmd
-}
-
-func decryptCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "decrypt", Args: cobra.NoArgs}
-
-	aes256.RegisterDecryptBackend(cmd)
-
-	return cmd
-}
-
-func splitCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "split", Args: cobra.NoArgs}
-
-	shamir.RegisterSplitBackend(cmd)
-
-	return cmd
-}
-
-func combineCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "combine", Args: cobra.NoArgs}
-
-	shamir.RegisterCombineBackend(cmd)
-
-	return cmd
-}
-
-func qrcodeCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "qrcode", Args: cobra.NoArgs}
-
-	qrcode.RegisterBackend(cmd)
+	cmd.AddCommand(
+		aes256.RegisterEncrypt(&cobra.Command{Use: "encrypt", Args: cobra.NoArgs}),
+		aes256.RegisterDecrypt(&cobra.Command{Use: "decrypt", Args: cobra.NoArgs}),
+		shamir.RegisterSplit(&cobra.Command{Use: "split", Args: cobra.NoArgs}),
+		shamir.RegisterCombine(&cobra.Command{Use: "combine", Args: cobra.NoArgs}),
+		qrcode.Register(&cobra.Command{Use: "qrcode", Args: cobra.NoArgs}),
+	)
 
 	return cmd
 }

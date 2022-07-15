@@ -11,16 +11,26 @@ import (
 )
 
 func ReadMnemonic() (string, error) {
-	mnemonic, err := io.ReadAll(os.Stdin)
+	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return "", fmt.Errorf("failed to read mnemonic: %w", err)
 	}
 
-	return string(bytes.TrimSpace(mnemonic)), nil
+	mnemonic := string(bytes.TrimSpace(data))
+	if _, err := bip39.EntropyFromMnemonic(mnemonic); err != nil {
+		return "", fmt.Errorf("mnemonic is not valid: %w", err)
+	}
+
+	return mnemonic, nil
 }
 
 func DeriveKeyFromMnemonic(mnemonic string, password string, path []uint32) (*bip32.Key, error) {
-	return DeriveKeyFromSeed(bip39.NewSeed(mnemonic, password), path)
+	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new seed: %w", err)
+	}
+
+	return DeriveKeyFromSeed(seed, path)
 }
 
 func DeriveKeyFromSeed(seed []byte, path []uint32) (*bip32.Key, error) {

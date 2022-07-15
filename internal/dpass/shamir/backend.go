@@ -11,18 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func RegisterSplitBackend(cmd *cobra.Command) {
-	instance := new(splitBackend)
-	cmd.RunE = instance.runE
-
-	cmd.Flags().StringVarP(&instance.output, "output", "o", outputDefault,
-		"prefix of output files, use standard output if empty")
-	cmd.Flags().IntVarP(&instance.parts, "parts", "n", partsDefault,
-		"total number of shares to be split into")
-	cmd.Flags().IntVarP(&instance.threshold, "threshold", "m", thresholdDefault,
-		"minimum number of shares to reconstruct")
-}
-
 const (
 	outputDefault    = ""
 	partsDefault     = 3
@@ -34,6 +22,28 @@ type splitBackend struct {
 	output    string
 	parts     int
 	threshold int
+}
+
+func splitBackendDefault() *splitBackend {
+	return &splitBackend{
+		output:    outputDefault,
+		parts:     partsDefault,
+		threshold: thresholdDefault,
+	}
+}
+
+func RegisterSplit(cmd *cobra.Command) *cobra.Command {
+	b := splitBackendDefault()
+	cmd.RunE = b.runE
+
+	cmd.Flags().StringVarP(&b.output, "output", "o", outputDefault,
+		"prefix of output files, use standard output if empty")
+	cmd.Flags().IntVarP(&b.parts, "parts", "n", partsDefault,
+		"total number of shares to be split into")
+	cmd.Flags().IntVarP(&b.threshold, "threshold", "m", thresholdDefault,
+		"minimum number of shares to reconstruct")
+
+	return cmd
 }
 
 func (b *splitBackend) runE(_ *cobra.Command, _ []string) error {
@@ -83,12 +93,18 @@ func (b *splitBackend) split(secret []byte) ([]*pem.Block, error) {
 	return blocks, nil
 }
 
-func RegisterCombineBackend(cmd *cobra.Command) {
-	instance := &combineBackend{}
-	cmd.RunE = instance.runE
+type combineBackend struct{}
+
+func combineBackendDefault() *combineBackend {
+	return &combineBackend{}
 }
 
-type combineBackend struct{}
+func RegisterCombine(cmd *cobra.Command) *cobra.Command {
+	b := combineBackendDefault()
+	cmd.RunE = b.runE
+
+	return cmd
+}
 
 func (b *combineBackend) runE(_ *cobra.Command, _ []string) error {
 	data, err := io.ReadAll(os.Stdin)

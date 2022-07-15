@@ -1,4 +1,4 @@
-package ethereum
+package tron
 
 import "testing"
 
@@ -12,13 +12,13 @@ func TestBackend(t *testing.T) {
 	}{
 		{
 			index:   0,
-			address: "0xF2E68B8894e098AB6b5936906AB5ea73De03712E",
-			private: "0x17348e94f527e08782ca41f4fc9cf702f143e397630ba8b6dc11d85a1e1dfaad",
+			address: "TFT56sLfzr8z1VsHrjfWDPTvmmNKq2YsLf",
+			private: "0eca3714a60c1e0696a0b9414d427c71416dad7d65e78a7c36538fbc69e5ebf5",
 		},
 		{
 			index:   9,
-			address: "0xcFaCBb2323A0529c90E4a25234a2Aa0a21328AfF",
-			private: "0x0ab1781468d0da1f9021d7be5e9c6e78618f9709d4c043f56f7af0a96418bc39",
+			address: "TWV9v9AruTYoM1BEpyQ4pkHgfiKRBnm1E6",
+			private: "af3c32cd9f88036c564f1de3cc407bb0e60942714e323201f2dc90a2c7ca1fd9",
 		},
 	}
 

@@ -99,18 +99,23 @@ func TestBackend(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		address, err := (&backend{
-			purpose: tt.purpose, network: tt.network, index: tt.index,
-		}).getResult(mnemonic)
+		pb := backendDefault()
+		pb.purpose = tt.purpose
+		pb.network = tt.network
+		pb.index = tt.index
+		address, err := pb.getResult(mnemonic)
 		if err != nil {
 			t.Fatalf("failed to get address: %v", err)
 		}
 		if address != tt.address {
 			t.Errorf("address: got = %s, want = %s", address, tt.address)
 		}
-		private, err := (&backend{
-			purpose: tt.purpose, network: tt.network, index: tt.index, secret: true,
-		}).getResult(mnemonic)
+		sb := backendDefault()
+		sb.purpose = tt.purpose
+		sb.network = tt.network
+		sb.index = tt.index
+		sb.secret = true
+		private, err := sb.getResult(mnemonic)
 		if err != nil {
 			t.Fatalf("failed to get private: %v", err)
 		}

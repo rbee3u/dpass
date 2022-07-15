@@ -28,7 +28,9 @@ func TestEncryptBackend(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		encodedNonceAndCiphertext, err := (&encryptBackend{nonceReader: tt.nonceReader}).encrypt(tt.key, tt.plaintext)
+		eb := encryptBackendDefault()
+		eb.nonceReader = tt.nonceReader
+		encodedNonceAndCiphertext, err := eb.encrypt(tt.key, tt.plaintext)
 		if err != nil {
 			t.Fatalf("failed to encrypt: %v", err)
 		}
@@ -58,7 +60,8 @@ func TestDecryptBackend(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		plaintext, err := (&decryptBackend{}).decrypt(tt.key, tt.encodedNonceAndCiphertext)
+		db := decryptBackendDefault()
+		plaintext, err := db.decrypt(tt.key, tt.encodedNonceAndCiphertext)
 		if err != nil {
 			t.Fatalf("failed to decrypt: %v", err)
 		}

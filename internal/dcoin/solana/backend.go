@@ -1,24 +1,30 @@
-package ethereum
+package solana
 
 import (
+	"crypto/ed25519"
+	"crypto/hmac"
+	"crypto/sha512"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
+	"unsafe"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/rbee3u/dpass/internal/dcoin"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip32"
+	"github.com/tyler-smith/go-bip39"
 )
 
 const (
 	purposeDefault = 44
-	coinDefault    = 60
+	coinDefault    = 501
 	accountDefault = 0
 	changeDefault  = 0
-	indexDefault   = 0
 	secretDefault  = false
+
+	secretSize = 32
 )
 
 var (
@@ -26,7 +32,8 @@ var (
 	errInvalidCoin    = errors.New("invalid coin")
 	errInvalidAccount = errors.New("invalid account")
 	errInvalidChange  = errors.New("invalid change")
-	errInvalidIndex   = errors.New("invalid index")
+
+	errNonHardenedChild = errors.New("non hardened child")
 )
 
 type backend struct {
@@ -34,7 +41,6 @@ type backend struct {
 	coin    uint32
 	account uint32
 	change  uint32
-	index   uint32
 	secret  bool
 }
 
@@ -44,7 +50,6 @@ func backendDefault() *backend {
 		coin:    coinDefault,
 		account: accountDefault,
 		change:  changeDefault,
-		index:   indexDefault,
 		secret:  secretDefault,
 	}
 }
@@ -53,8 +58,8 @@ func Register(cmd *cobra.Command) *cobra.Command {
 	b := backendDefault()
 	cmd.RunE = b.runE
 
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, fmt.Sprintf(
-		"index is the number of address (default %v)", indexDefault))
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, fmt.Sprintf(
+		"account is the number of address (default %v)", accountDefault))
 
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
@@ -77,10 +82,6 @@ func (b *backend) checkArguments() error {
 
 	if b.change >= bip32.FirstHardenedChild {
 		return errInvalidChange
-	}
-
-	if b.index >= bip32.FirstHardenedChild {
-		return errInvalidIndex
 	}
 
 	return nil
@@ -109,25 +110,54 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to check arguments: %w", err)
 	}
 
-	key, err := dcoin.DeriveKeyFromMnemonic(mnemonic, "", []uint32{
+	key, err := deriveKeyFromMnemonic(mnemonic, "", []uint32{
 		bip32.FirstHardenedChild + b.purpose,
 		bip32.FirstHardenedChild + b.coin,
 		bip32.FirstHardenedChild + b.account,
-		b.change,
-		b.index,
+		bip32.FirstHardenedChild + b.change,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to derive key from mnemonic: %w", err)
 	}
 
-	privateKey, err := crypto.ToECDSA(key.Key)
-	if err != nil {
-		return "", fmt.Errorf("failed to convert key: %w", err)
-	}
+	privateKey := ed25519.NewKeyFromSeed(key)
 
 	if b.secret {
-		return hexutil.Encode(crypto.FromECDSA(privateKey)), nil
+		return base58.Encode(privateKey), nil
 	}
 
-	return crypto.PubkeyToAddress(privateKey.PublicKey).String(), nil
+	return base58.Encode(privateKey[ed25519.SeedSize:]), nil
+}
+
+func deriveKeyFromMnemonic(mnemonic string, password string, path []uint32) ([]byte, error) {
+	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new seed: %w", err)
+	}
+
+	hash := hmac.New(sha512.New, []byte("ed25519 seed"))
+	hash.Write(seed)
+	digest := hash.Sum(nil)
+
+	for i := range path {
+		if path[i] < bip32.FirstHardenedChild {
+			return nil, errNonHardenedChild
+		}
+
+		hash = hmac.New(sha512.New, digest[secretSize:])
+		hash.Write([]byte{0})
+		hash.Write(digest[:secretSize])
+		hash.Write(u32ToBytes(path[i]))
+		digest = hash.Sum(nil)
+	}
+
+	return digest[:secretSize], nil
+}
+
+func u32ToBytes(v uint32) []byte {
+	b := make([]byte, unsafe.Sizeof(v))
+
+	binary.BigEndian.PutUint32(b, v)
+
+	return b
 }

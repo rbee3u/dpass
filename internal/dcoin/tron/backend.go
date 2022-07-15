@@ -1,11 +1,14 @@
-package ethereum
+package tron
 
 import (
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rbee3u/dpass/internal/dcoin"
 	"github.com/spf13/cobra"
@@ -14,7 +17,7 @@ import (
 
 const (
 	purposeDefault = 44
-	coinDefault    = 60
+	coinDefault    = 195
 	accountDefault = 0
 	changeDefault  = 0
 	indexDefault   = 0
@@ -120,14 +123,24 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to derive key from mnemonic: %w", err)
 	}
 
-	privateKey, err := crypto.ToECDSA(key.Key)
+	sk, err := crypto.ToECDSA(key.Key)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert key: %w", err)
 	}
 
 	if b.secret {
-		return hexutil.Encode(crypto.FromECDSA(privateKey)), nil
+		return hex.EncodeToString(crypto.FromECDSA(sk)), nil
 	}
 
-	return crypto.PubkeyToAddress(privateKey.PublicKey).String(), nil
+	return pkToAddress(sk.PublicKey), nil
+}
+
+func pkToAddress(pk ecdsa.PublicKey) string {
+	const magicByte = 0x41
+	data := append([]byte{magicByte}, crypto.PubkeyToAddress(pk).Bytes()...)
+
+	digest := sha256.Sum256(data)
+	digest = sha256.Sum256(digest[:])
+
+	return base58.Encode(append(data, digest[:4]...))
 }

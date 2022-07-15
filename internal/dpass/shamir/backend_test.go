@@ -9,13 +9,17 @@ import (
 func TestSplitBackend(t *testing.T) {
 	secret := []byte("To be, or not to be, that is the question.")
 
-	blocks, err := (&splitBackend{parts: 9, threshold: 4}).split(secret)
+	sb := splitBackendDefault()
+	sb.parts = 9
+	sb.threshold = 4
+	blocks, err := sb.split(secret)
 	if err != nil {
 		t.Fatalf("failed to split: %v", err)
 	}
 
 	for _, group := range groups94(blocks) {
-		combinedSecret, err := (&combineBackend{}).combine(group)
+		cb := combineBackendDefault()
+		combinedSecret, err := cb.combine(group)
 		if err != nil {
 			t.Fatalf("failed to combine: %v", err)
 		}
@@ -113,7 +117,8 @@ N: 9
 `))
 
 	for _, group := range groups94(blocks) {
-		combinedSecret, err := (&combineBackend{}).combine(group)
+		cb := combineBackendDefault()
+		combinedSecret, err := cb.combine(group)
 		if err != nil {
 			t.Fatalf("failed to combine: %v", err)
 		}

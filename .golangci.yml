@@ -19,7 +19,6 @@ linters:
     - errorlint
     - execinquery
     - exhaustive
-    - exhaustruct
     - exportloopref
     - forbidigo
     - forcetypeassert
@@ -83,7 +82,6 @@ linters:
     - unparam
     - unused
     - varcheck
-    - varnamelen
     - wastedassign
     - whitespace
     - wrapcheck
@@ -91,8 +89,3 @@ linters:
 
 run:
   tests: false
-
-linters-settings:
-  exhaustruct:
-    exclude:
-      - cobra\.Command$

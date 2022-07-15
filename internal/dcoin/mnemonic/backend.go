@@ -8,14 +8,6 @@ import (
 	"github.com/tyler-smith/go-bip39"
 )
 
-func RegisterBackend(cmd *cobra.Command) {
-	instance := new(backend)
-	cmd.RunE = instance.runE
-
-	cmd.Flags().IntVarP(&instance.size, "size", "s", sizeDefault, fmt.Sprintf(
-		"entropy bits, must be within [%v, %v] and a multiple of %v", sizeMin, sizeMax, sizeStep))
-}
-
 const (
 	sizeDefault = sizeMax
 	sizeMin     = 128
@@ -25,6 +17,20 @@ const (
 
 type backend struct {
 	size int
+}
+
+func backendDefault() *backend {
+	return &backend{size: sizeDefault}
+}
+
+func Register(cmd *cobra.Command) *cobra.Command {
+	b := backendDefault()
+	cmd.RunE = b.runE
+
+	cmd.Flags().IntVarP(&b.size, "size", "s", sizeDefault, fmt.Sprintf(
+		"entropy bits, must be within [%v, %v] and a multiple of %v", sizeMin, sizeMax, sizeStep))
+
+	return cmd
 }
 
 func (b *backend) runE(_ *cobra.Command, _ []string) error {

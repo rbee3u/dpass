@@ -14,58 +14,34 @@ import (
 	"github.com/tyler-smith/go-bip32"
 )
 
-func RegisterBackend(cmd *cobra.Command) {
-	instance := new(backend)
-	cmd.RunE = instance.runE
-
-	cmd.Flags().Uint32Var(&instance.purpose, "purpose", purposeDefault, fmt.Sprintf(
-		"purpose must be %v, %v or %v", purpose44, purpose49, purpose84))
-	cmd.Flags().StringVar(&instance.network, "network", networkDefault, fmt.Sprintf(
-		"network must be %q, %q, %q or %q", networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet))
-	cmd.Flags().Uint32Var(&instance.index, "index", indexDefault, fmt.Sprintf(
-		"index is the number of address (default %v)", indexDefault))
-	cmd.Flags().BoolVar(&instance.secret, "secret", secretDefault, fmt.Sprintf(
-		"show secret instead of address (default %t)", secretDefault))
-	cmd.Flags().BoolVar(&instance.decompress, "decompress", decompressDefault, fmt.Sprintf(
-		"compress the public key or not (default %t)", decompressDefault))
-}
-
-var (
-	errInvalidNetwork = errors.New("invalid network")
-	errInvalidPurpose = errors.New("invalid purpose")
-	errInvalidIndex   = errors.New("invalid index")
-)
-
 const (
 	purposeDefault = purpose84
 	purpose44      = 44
 	purpose49      = 49
 	purpose84      = 84
-)
 
-const (
 	networkDefault       = networkMainNet
 	networkMainNet       = "mainnet"
 	networkRegressionNet = "regtest"
 	networkTestNet3      = "testnet3"
 	networkSimNet        = "simnet"
-)
 
-const (
 	coinMain = 0
 	coinTest = 1
-)
 
-const (
-	indexDefault = 0
-)
-
-const (
-	secretDefault = false
-)
-
-const (
+	accountDefault    = 0
+	changeDefault     = 0
+	indexDefault      = 0
+	secretDefault     = false
 	decompressDefault = false
+)
+
+var (
+	errInvalidPurpose = errors.New("invalid purpose")
+	errInvalidNetwork = errors.New("invalid network")
+	errInvalidAccount = errors.New("invalid account")
+	errInvalidChange  = errors.New("invalid change")
+	errInvalidIndex   = errors.New("invalid index")
 )
 
 type backend struct {
@@ -79,6 +55,92 @@ type backend struct {
 	index      uint32
 	secret     bool
 	decompress bool
+}
+
+func backendDefault() *backend {
+	return &backend{
+		purpose:    purposeDefault,
+		network:    networkDefault,
+		account:    accountDefault,
+		change:     changeDefault,
+		index:      indexDefault,
+		secret:     secretDefault,
+		decompress: decompressDefault,
+	}
+}
+
+func Register(cmd *cobra.Command) *cobra.Command {
+	b := backendDefault()
+	cmd.RunE = b.runE
+
+	cmd.Flags().Uint32Var(&b.purpose, "purpose", purposeDefault, fmt.Sprintf(
+		"purpose must be %v, %v or %v", purpose44, purpose49, purpose84))
+	cmd.Flags().StringVar(&b.network, "network", networkDefault, fmt.Sprintf(
+		"network must be %q, %q, %q or %q", networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet))
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, fmt.Sprintf(
+		"index is the number of address (default %v)", indexDefault))
+	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
+		"show secret instead of address (default %t)", secretDefault))
+	cmd.Flags().BoolVar(&b.decompress, "decompress", decompressDefault, fmt.Sprintf(
+		"compress the public key or not (default %t)", decompressDefault))
+
+	return cmd
+}
+
+func (b *backend) checkArguments() error {
+	if err := b.checkPurpose(); err != nil {
+		return fmt.Errorf("failed to check purpose: %w", err)
+	}
+
+	if err := b.checkNetwork(); err != nil {
+		return fmt.Errorf("failed to check network: %w", err)
+	}
+
+	if b.account >= bip32.FirstHardenedChild {
+		return errInvalidAccount
+	}
+
+	if b.change >= bip32.FirstHardenedChild {
+		return errInvalidChange
+	}
+
+	if b.index >= bip32.FirstHardenedChild {
+		return errInvalidIndex
+	}
+
+	return nil
+}
+
+func (b *backend) checkPurpose() error {
+	switch b.purpose {
+	case purpose44:
+		b.convert = b.pkHashToAddress44
+	case purpose49:
+		b.convert = b.pkHashToAddress49
+	case purpose84:
+		b.convert = b.pkHashToAddress84
+	default:
+		return errInvalidPurpose
+	}
+
+	return nil
+}
+
+func (b *backend) checkNetwork() error {
+	switch b.network {
+	case networkMainNet:
+		b.params, b.coin = &chaincfg.MainNetParams, coinMain
+	case networkRegressionNet:
+		b.params, b.coin = &chaincfg.RegressionNetParams, coinTest
+	case networkTestNet3:
+		b.params, b.coin = &chaincfg.TestNet3Params, coinTest
+	case networkSimNet:
+		b.params, b.coin = &chaincfg.SimNetParams, coinTest
+	default:
+		return errInvalidNetwork
+	}
+
+	return nil
 }
 
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
@@ -127,62 +189,6 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 
 	return b.convert(btcutil.Hash160(wif.SerializePubKey()))
-}
-
-func (b *backend) checkArguments() error {
-	if err := b.checkPurpose(); err != nil {
-		return fmt.Errorf("failed to check purpose: %w", err)
-	}
-
-	if err := b.checkNetwork(); err != nil {
-		return fmt.Errorf("failed to check network: %w", err)
-	}
-
-	if err := b.checkIndex(); err != nil {
-		return fmt.Errorf("failed to check index: %w", err)
-	}
-
-	return nil
-}
-
-func (b *backend) checkPurpose() error {
-	switch b.purpose {
-	case purpose44:
-		b.convert = b.pkHashToAddress44
-	case purpose49:
-		b.convert = b.pkHashToAddress49
-	case purpose84:
-		b.convert = b.pkHashToAddress84
-	default:
-		return errInvalidPurpose
-	}
-
-	return nil
-}
-
-func (b *backend) checkNetwork() error {
-	switch b.network {
-	case networkMainNet:
-		b.params, b.coin = &chaincfg.MainNetParams, coinMain
-	case networkRegressionNet:
-		b.params, b.coin = &chaincfg.RegressionNetParams, coinTest
-	case networkTestNet3:
-		b.params, b.coin = &chaincfg.TestNet3Params, coinTest
-	case networkSimNet:
-		b.params, b.coin = &chaincfg.SimNetParams, coinTest
-	default:
-		return errInvalidNetwork
-	}
-
-	return nil
-}
-
-func (b *backend) checkIndex() error {
-	if b.index >= bip32.FirstHardenedChild {
-		return errInvalidIndex
-	}
-
-	return nil
 }
 
 func (b *backend) pkHashToAddress44(pkHash []byte) (string, error) {

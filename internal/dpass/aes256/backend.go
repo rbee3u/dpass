@@ -16,13 +16,19 @@ import (
 
 const gcmStandardNonceSize = 12
 
-func RegisterEncryptBackend(cmd *cobra.Command) {
-	instance := &encryptBackend{nonceReader: rand.Reader}
-	cmd.RunE = instance.runE
-}
-
 type encryptBackend struct {
 	nonceReader io.Reader
+}
+
+func encryptBackendDefault() *encryptBackend {
+	return &encryptBackend{nonceReader: rand.Reader}
+}
+
+func RegisterEncrypt(cmd *cobra.Command) *cobra.Command {
+	b := encryptBackendDefault()
+	cmd.RunE = b.runE
+
+	return cmd
 }
 
 func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
@@ -78,12 +84,18 @@ func (b *encryptBackend) encrypt(key, plaintext []byte) ([]byte, error) {
 	return encodedNonceAndCiphertext, nil
 }
 
-func RegisterDecryptBackend(cmd *cobra.Command) {
-	instance := &decryptBackend{}
-	cmd.RunE = instance.runE
+type decryptBackend struct{}
+
+func decryptBackendDefault() *decryptBackend {
+	return &decryptBackend{}
 }
 
-type decryptBackend struct{}
+func RegisterDecrypt(cmd *cobra.Command) *cobra.Command {
+	b := decryptBackendDefault()
+	cmd.RunE = b.runE
+
+	return cmd
+}
 
 func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 	encodedNonceAndCiphertext, err := io.ReadAll(os.Stdin)

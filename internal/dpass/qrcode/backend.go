@@ -10,18 +10,6 @@ import (
 	"rsc.io/qr"
 )
 
-func RegisterBackend(cmd *cobra.Command) {
-	instance := new(backend)
-	cmd.RunE = instance.runE
-
-	cmd.Flags().StringVarP(&instance.level, "level", "l", levelDefault, fmt.Sprintf(
-		"error correction level (%q | %q | %q | %q)", levelL, levelM, levelQ, levelH))
-	cmd.Flags().IntVarP(&instance.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
-		"quiet zone border size, must be in range [%v, %v]", quietMin, quietMax))
-	cmd.Flags().BoolVarP(&instance.swap, "swap", "s", swapDefault, fmt.Sprintf(
-		"swap black and white pixels (default %t)", swapDefault))
-}
-
 var (
 	errInvalidLevel = errors.New("invalid level")
 	errInvalidQuiet = errors.New("invalid quiet")
@@ -33,15 +21,11 @@ const (
 	levelM       = "M"
 	levelQ       = "Q"
 	levelH       = "H"
-)
 
-const (
 	quietDefault = 2
 	quietMin     = 0
 	quietMax     = 9
-)
 
-const (
 	swapDefault = false
 )
 
@@ -50,6 +34,28 @@ type backend struct {
 	levelInt qr.Level
 	quiet    int
 	swap     bool
+}
+
+func backendDefault() *backend {
+	return &backend{
+		level: levelDefault,
+		quiet: quietDefault,
+		swap:  swapDefault,
+	}
+}
+
+func Register(cmd *cobra.Command) *cobra.Command {
+	b := backendDefault()
+	cmd.RunE = b.runE
+
+	cmd.Flags().StringVarP(&b.level, "level", "l", levelDefault, fmt.Sprintf(
+		"error correction level (%q | %q | %q | %q)", levelL, levelM, levelQ, levelH))
+	cmd.Flags().IntVarP(&b.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
+		"quiet zone border size, must be in range [%v, %v]", quietMin, quietMax))
+	cmd.Flags().BoolVarP(&b.swap, "swap", "s", swapDefault, fmt.Sprintf(
+		"swap black and white pixels (default %t)", swapDefault))
+
+	return cmd
 }
 
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
