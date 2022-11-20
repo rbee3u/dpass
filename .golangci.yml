@@ -20,6 +20,7 @@ linters:
     - errorlint
     - execinquery
     - exhaustive
+    - exhaustruct
     - exportloopref
     - forbidigo
     - forcetypeassert
@@ -85,6 +86,7 @@ linters:
     - unparam
     - unused
     - usestdlibvars
+    - varnamelen
     - wastedassign
     - whitespace
     - wrapcheck
@@ -92,3 +94,16 @@ linters:
 
 run:
   tests: false
+  skip-dirs:
+    - third_party
+
+issues:
+  exclude-rules:
+    - path: \.go
+      linters:
+        - exhaustruct
+        - gochecknoinits
+        - gochecknoglobals
+        - goerr113
+        - gomnd
+        - varnamelen

@@ -1,18 +1,19 @@
 package mnemonic
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 
+	"github.com/rbee3u/dpass/internal/dcoin"
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip39"
 )
 
 const (
 	sizeDefault = sizeMax
+	sizeStep    = 32
 	sizeMin     = 128
 	sizeMax     = 256
-	sizeStep    = 32
 )
 
 type backend struct {
@@ -28,7 +29,7 @@ func Register(cmd *cobra.Command) *cobra.Command {
 	cmd.RunE = b.runE
 
 	cmd.Flags().IntVarP(&b.size, "size", "s", sizeDefault, fmt.Sprintf(
-		"entropy bits, must be within [%v, %v] and a multiple of %v", sizeMin, sizeMax, sizeStep))
+		"entropy bits, must be a multiple of %v and within [%v, %v]", sizeStep, sizeMin, sizeMax))
 
 	return cmd
 }
@@ -39,9 +40,9 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create entropy randomly: %w", err)
 	}
 
-	mnemonic, err := newMnemonicFromEntropy(entropy)
+	mnemonic, err := dcoin.EntropyToMnemonic(entropy)
 	if err != nil {
-		return fmt.Errorf("failed to new mnemonic from entropy: %w", err)
+		return fmt.Errorf("failed to convert entropy to mnemonic: %w", err)
 	}
 
 	if _, err := os.Stdout.WriteString(mnemonic); err != nil {
@@ -52,19 +53,12 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 }
 
 func createEntropyRandomly(size int) ([]byte, error) {
-	entropy, err := bip39.NewEntropy(size)
-	if err != nil {
-		return nil, fmt.Errorf("failed to new entropy: %w", err)
+	if size%sizeStep != 0 || size < sizeMin || size > sizeMax {
+		return nil, fmt.Errorf("invalid entropy size: %v", size)
 	}
+
+	entropy := make([]byte, size/8)
+	_, _ = rand.Read(entropy)
 
 	return entropy, nil
-}
-
-func newMnemonicFromEntropy(entropy []byte) (string, error) {
-	mnemonic, err := bip39.NewMnemonic(entropy)
-	if err != nil {
-		return "", fmt.Errorf("failed to new mnemonic: %w", err)
-	}
-
-	return mnemonic, nil
 }

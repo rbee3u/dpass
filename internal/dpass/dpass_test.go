@@ -1,9 +1,11 @@
-package dpass
+package dpass_test
 
 import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/rbee3u/dpass/internal/dpass"
 )
 
 func TestDeriveKey(t *testing.T) {
@@ -22,7 +24,7 @@ func TestDeriveKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		encodedKey := []byte(hex.EncodeToString(DeriveKey(tt.password)))
+		encodedKey := []byte(hex.EncodeToString(dpass.DeriveKey(tt.password)))
 		if !bytes.Equal(encodedKey, tt.encodedKey) {
 			t.Errorf("got = %s, want = %s", encodedKey, tt.encodedKey)
 		}

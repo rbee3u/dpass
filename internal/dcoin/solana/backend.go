@@ -10,11 +10,10 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/rbee3u/dpass/internal/dcoin"
+	"github.com/rbee3u/dpass/third_party/github.com/mr-tron/base58"
+	"github.com/rbee3u/dpass/third_party/github.com/tyler-smith/go-bip32"
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip32"
-	"github.com/tyler-smith/go-bip39"
 )
 
 const (
@@ -110,7 +109,12 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to check arguments: %w", err)
 	}
 
-	key, err := deriveKeyFromMnemonic(mnemonic, "", []uint32{
+	seed, err := dcoin.MnemonicToSeed(mnemonic, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
+	}
+
+	key, err := seedToKey(seed, []uint32{
 		bip32.FirstHardenedChild + b.purpose,
 		bip32.FirstHardenedChild + b.coin,
 		bip32.FirstHardenedChild + b.account,
@@ -129,12 +133,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return base58.Encode(privateKey[ed25519.SeedSize:]), nil
 }
 
-func deriveKeyFromMnemonic(mnemonic string, password string, path []uint32) ([]byte, error) {
-	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, password)
-	if err != nil {
-		return nil, fmt.Errorf("failed to new seed: %w", err)
-	}
-
+func seedToKey(seed []byte, path []uint32) ([]byte, error) {
 	hash := hmac.New(sha512.New, []byte("ed25519 seed"))
 	hash.Write(seed)
 	digest := hash.Sum(nil)
@@ -147,14 +146,14 @@ func deriveKeyFromMnemonic(mnemonic string, password string, path []uint32) ([]b
 		hash = hmac.New(sha512.New, digest[secretSize:])
 		hash.Write([]byte{0})
 		hash.Write(digest[:secretSize])
-		hash.Write(u32ToBytes(path[i]))
+		hash.Write(uint32ToBytes(path[i]))
 		digest = hash.Sum(nil)
 	}
 
 	return digest[:secretSize], nil
 }
 
-func u32ToBytes(v uint32) []byte {
+func uint32ToBytes(v uint32) []byte {
 	b := make([]byte, unsafe.Sizeof(v))
 
 	binary.BigEndian.PutUint32(b, v)

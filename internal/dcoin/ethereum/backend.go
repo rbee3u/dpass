@@ -1,15 +1,16 @@
 package ethereum
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
+	"unicode"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rbee3u/dpass/internal/dcoin"
+	"github.com/rbee3u/dpass/third_party/github.com/decred/dcrd/dcrec/secp256k1"
+	"github.com/rbee3u/dpass/third_party/github.com/tyler-smith/go-bip32"
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip32"
 )
 
 const (
@@ -109,7 +110,12 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to check arguments: %w", err)
 	}
 
-	key, err := dcoin.DeriveKeyFromMnemonic(mnemonic, "", []uint32{
+	seed, err := dcoin.MnemonicToSeed(mnemonic, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
+	}
+
+	key, err := dcoin.SeedToKey(seed, []uint32{
 		bip32.FirstHardenedChild + b.purpose,
 		bip32.FirstHardenedChild + b.coin,
 		bip32.FirstHardenedChild + b.account,
@@ -117,17 +123,26 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		b.index,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to derive key from mnemonic: %w", err)
-	}
-
-	privateKey, err := crypto.ToECDSA(key.Key)
-	if err != nil {
-		return "", fmt.Errorf("failed to convert key: %w", err)
+		return "", fmt.Errorf("failed to convert seed to key: %w", err)
 	}
 
 	if b.secret {
-		return hexutil.Encode(crypto.FromECDSA(privateKey)), nil
+		return hex.EncodeToString(key.Key), nil
 	}
 
-	return crypto.PubkeyToAddress(privateKey.PublicKey).String(), nil
+	return pkToAddress(secp256k1.PrivKeyFromBytes(key.Key).PubKey()), nil
+}
+
+func pkToAddress(pk *secp256k1.PublicKey) string {
+	data := []byte(hex.EncodeToString(dcoin.Keccak256Sum(pk.SerializeUncompressed()[1:])[12:]))
+
+	digest := dcoin.Keccak256Sum(data)
+
+	for i := range data {
+		if ((digest[i/2]>>(4-i%2*4))&0b1000) != 0 && unicode.IsLower(rune(data[i])) {
+			data[i] = byte(unicode.ToUpper(rune(data[i])))
+		}
+	}
+
+	return string(append([]byte("0x"), data...))
 }

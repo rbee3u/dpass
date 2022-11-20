@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/hashicorp/vault/shamir"
+	"github.com/rbee3u/dpass/third_party/github.com/hashicorp/vault/shamir"
 	"github.com/spf13/cobra"
 )
 

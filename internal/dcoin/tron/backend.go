@@ -1,18 +1,16 @@
 package tron
 
 import (
-	"crypto/ecdsa"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rbee3u/dpass/internal/dcoin"
+	"github.com/rbee3u/dpass/third_party/github.com/decred/dcrd/dcrec/secp256k1"
+	"github.com/rbee3u/dpass/third_party/github.com/mr-tron/base58"
+	"github.com/rbee3u/dpass/third_party/github.com/tyler-smith/go-bip32"
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip32"
 )
 
 const (
@@ -112,7 +110,12 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to check arguments: %w", err)
 	}
 
-	key, err := dcoin.DeriveKeyFromMnemonic(mnemonic, "", []uint32{
+	seed, err := dcoin.MnemonicToSeed(mnemonic, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
+	}
+
+	key, err := dcoin.SeedToKey(seed, []uint32{
 		bip32.FirstHardenedChild + b.purpose,
 		bip32.FirstHardenedChild + b.coin,
 		bip32.FirstHardenedChild + b.account,
@@ -120,27 +123,18 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		b.index,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to derive key from mnemonic: %w", err)
-	}
-
-	sk, err := crypto.ToECDSA(key.Key)
-	if err != nil {
-		return "", fmt.Errorf("failed to convert key: %w", err)
+		return "", fmt.Errorf("failed to convert seed to key: %w", err)
 	}
 
 	if b.secret {
-		return hex.EncodeToString(crypto.FromECDSA(sk)), nil
+		return hex.EncodeToString(key.Key), nil
 	}
 
-	return pkToAddress(sk.PublicKey), nil
+	return pkToAddress(secp256k1.PrivKeyFromBytes(key.Key).PubKey()), nil
 }
 
-func pkToAddress(pk ecdsa.PublicKey) string {
-	const magicByte = 0x41
-	data := append([]byte{magicByte}, crypto.PubkeyToAddress(pk).Bytes()...)
+func pkToAddress(pk *secp256k1.PublicKey) string {
+	data := append([]byte{'A'}, dcoin.Keccak256Sum(pk.SerializeUncompressed()[1:])[12:]...)
 
-	digest := sha256.Sum256(data)
-	digest = sha256.Sum256(digest[:])
-
-	return base58.Encode(append(data, digest[:4]...))
+	return base58.Encode(append(data, dcoin.Sha256Sum(dcoin.Sha256Sum(data))[:4]...))
 }
