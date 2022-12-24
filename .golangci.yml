@@ -102,8 +102,3 @@ issues:
     - path: \.go
       linters:
         - exhaustruct
-        - gochecknoinits
-        - gochecknoglobals
-        - goerr113
-        - gomnd
-        - varnamelen

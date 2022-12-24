@@ -1,7 +1,6 @@
 package mnemonic
 
 import (
-	"crypto/rand"
 	"fmt"
 	"os"
 
@@ -9,33 +8,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	sizeDefault = sizeMax
-	sizeStep    = 32
-	sizeMin     = 128
-	sizeMax     = 256
-)
-
 type backend struct {
 	size int
 }
 
-func backendDefault() *backend {
-	return &backend{size: sizeDefault}
-}
+func backendDefault() *backend { return &backend{size: dcoin.EntropySizeMax} }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "mnemonic", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().IntVarP(&b.size, "size", "s", sizeDefault, fmt.Sprintf(
-		"entropy bits, must be a multiple of %v and within [%v, %v]", sizeStep, sizeMin, sizeMax))
+	cmd.Flags().IntVarP(&backend.size, "size", "s", dcoin.EntropySizeMax, fmt.Sprintf(
+		"size is the number of entropy bits, must be a multiple of %v and within [%v, %v]",
+		dcoin.EntropySizeStep, dcoin.EntropySizeMin, dcoin.EntropySizeMax))
 
 	return cmd
 }
 
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
-	entropy, err := createEntropyRandomly(b.size)
+	entropy, err := dcoin.CreateEntropyRandomly(b.size)
 	if err != nil {
 		return fmt.Errorf("failed to create entropy randomly: %w", err)
 	}
@@ -50,15 +41,4 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	}
 
 	return nil
-}
-
-func createEntropyRandomly(size int) ([]byte, error) {
-	if size%sizeStep != 0 || size < sizeMin || size > sizeMax {
-		return nil, fmt.Errorf("invalid entropy size: %v", size)
-	}
-
-	entropy := make([]byte, size/8)
-	_, _ = rand.Read(entropy)
-
-	return entropy, nil
 }

@@ -32,15 +32,15 @@ func splitBackendDefault() *splitBackend {
 	}
 }
 
-func RegisterSplit(cmd *cobra.Command) *cobra.Command {
-	b := splitBackendDefault()
-	cmd.RunE = b.runE
+func NewCmdSplit() *cobra.Command {
+	backend := splitBackendDefault()
+	cmd := &cobra.Command{Use: "split", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().StringVarP(&b.output, "output", "o", outputDefault,
+	cmd.Flags().StringVarP(&backend.output, "output", "o", outputDefault,
 		"prefix of output files, use standard output if empty")
-	cmd.Flags().IntVarP(&b.parts, "parts", "n", partsDefault,
+	cmd.Flags().IntVarP(&backend.parts, "parts", "n", partsDefault,
 		"total number of shares to be split into")
-	cmd.Flags().IntVarP(&b.threshold, "threshold", "m", thresholdDefault,
+	cmd.Flags().IntVarP(&backend.threshold, "threshold", "m", thresholdDefault,
 		"minimum number of shares to reconstruct")
 
 	return cmd
@@ -99,9 +99,9 @@ func combineBackendDefault() *combineBackend {
 	return &combineBackend{}
 }
 
-func RegisterCombine(cmd *cobra.Command) *cobra.Command {
-	b := combineBackendDefault()
-	cmd.RunE = b.runE
+func NewCmdCombine() *cobra.Command {
+	backend := combineBackendDefault()
+	cmd := &cobra.Command{Use: "combine", Args: cobra.NoArgs, RunE: backend.runE}
 
 	return cmd
 }

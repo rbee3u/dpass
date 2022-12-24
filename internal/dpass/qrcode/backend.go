@@ -44,15 +44,15 @@ func backendDefault() *backend {
 	}
 }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "qrcode", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().StringVarP(&b.level, "level", "l", levelDefault, fmt.Sprintf(
+	cmd.Flags().StringVarP(&backend.level, "level", "l", levelDefault, fmt.Sprintf(
 		"error correction level (%q | %q | %q | %q)", levelL, levelM, levelQ, levelH))
-	cmd.Flags().IntVarP(&b.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
+	cmd.Flags().IntVarP(&backend.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
 		"quiet zone border size, must be in range [%v, %v]", quietMin, quietMax))
-	cmd.Flags().BoolVarP(&b.swap, "swap", "s", swapDefault, fmt.Sprintf(
+	cmd.Flags().BoolVarP(&backend.swap, "swap", "s", swapDefault, fmt.Sprintf(
 		"swap black and white pixels (default %t)", swapDefault))
 
 	return cmd

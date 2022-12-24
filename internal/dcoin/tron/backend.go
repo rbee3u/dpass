@@ -50,14 +50,13 @@ func backendDefault() *backend {
 	}
 }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "tron", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
 		"index is the number of address (default %v)", indexDefault))
-
-	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
+	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
 
 	return cmd

@@ -71,19 +71,19 @@ func backendDefault() *backend {
 	}
 }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "bitcoin", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().Uint32Var(&b.purpose, "purpose", purposeDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&backend.purpose, "purpose", purposeDefault, fmt.Sprintf(
 		"purpose must be %v, %v or %v", purpose44, purpose49, purpose84))
-	cmd.Flags().StringVar(&b.network, "network", networkDefault, fmt.Sprintf(
+	cmd.Flags().StringVar(&backend.network, "network", networkDefault, fmt.Sprintf(
 		"network must be %q, %q, %q or %q", networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet))
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
 		"index is the number of address (default %v)", indexDefault))
-	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
+	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
-	cmd.Flags().BoolVar(&b.decompress, "decompress", decompressDefault, fmt.Sprintf(
+	cmd.Flags().BoolVar(&backend.decompress, "decompress", decompressDefault, fmt.Sprintf(
 		"compress the public key or not (default %t)", decompressDefault))
 
 	return cmd
@@ -227,6 +227,7 @@ func (b *backend) pkToAddress(pk *secp256k1.PublicKey) string {
 	return b.convert(dcoin.RipeMD160Sum(dcoin.Sha256Sum(data)))
 }
 
+//nolint:gomnd
 func (b *backend) pkHashToAddress44(pkHash []byte) string {
 	data := make([]byte, 0, 25)
 	data = append(data, b.magicPubKeyHash)
@@ -236,6 +237,7 @@ func (b *backend) pkHashToAddress44(pkHash []byte) string {
 	return base58.Encode(data)
 }
 
+//nolint:gomnd
 func (b *backend) pkHashToAddress49(pkHash []byte) string {
 	data := make([]byte, 0, 25)
 	data = append(data, b.magicScriptHash)
@@ -245,6 +247,7 @@ func (b *backend) pkHashToAddress49(pkHash []byte) string {
 	return base58.Encode(data)
 }
 
+//nolint:gomnd
 func (b *backend) pkHashToAddress84(pkHash []byte) string {
 	const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
@@ -254,13 +257,13 @@ func (b *backend) pkHashToAddress84(pkHash []byte) string {
 	data = append(data, '1', charset[0])
 
 	polymod := uint32(1)
-	iterate := func(v uint32) {
-		polymod, v = ((polymod&0x1ffffff)<<5)^v, polymod
-		polymod ^= (1 & (v >> 25)) * 0x3b6a57b2
-		polymod ^= (1 & (v >> 26)) * 0x26508e6d
-		polymod ^= (1 & (v >> 27)) * 0x1ea119fa
-		polymod ^= (1 & (v >> 28)) * 0x3d4233dd
-		polymod ^= (1 & (v >> 29)) * 0x2a1462b3
+	iterate := func(value uint32) {
+		polymod, value = ((polymod&0x1ffffff)<<5)^value, polymod
+		polymod ^= (1 & (value >> 25)) * 0x3b6a57b2
+		polymod ^= (1 & (value >> 26)) * 0x26508e6d
+		polymod ^= (1 & (value >> 27)) * 0x1ea119fa
+		polymod ^= (1 & (value >> 28)) * 0x3d4233dd
+		polymod ^= (1 & (value >> 29)) * 0x2a1462b3
 	}
 
 	for i := 0; i < len(hrp); i++ {
@@ -274,7 +277,7 @@ func (b *backend) pkHashToAddress84(pkHash []byte) string {
 	}
 
 	for iterate(0); len(pkHash) != 0; pkHash = pkHash[5:] {
-		for _, v := range []byte{
+		for _, value := range []byte{
 			pkHash[0] >> 3,
 			((pkHash[0] << 2) | (pkHash[1] >> 6)) & 31,
 			(pkHash[1] >> 1) & 31,
@@ -284,8 +287,8 @@ func (b *backend) pkHashToAddress84(pkHash []byte) string {
 			((pkHash[3] << 3) | (pkHash[4] >> 5)) & 31,
 			pkHash[4] & 31,
 		} {
-			data = append(data, charset[v])
-			iterate(uint32(v))
+			data = append(data, charset[value])
+			iterate(uint32(value))
 		}
 	}
 

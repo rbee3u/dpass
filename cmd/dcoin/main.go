@@ -13,23 +13,23 @@ import (
 )
 
 func main() {
-	if err := rootCmd().Execute(); err != nil {
+	if err := newCmd().Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func rootCmd() *cobra.Command {
+func newCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "dcoin", Args: cobra.NoArgs}
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 
 	cmd.AddCommand(
-		mnemonic.Register(&cobra.Command{Use: "mnemonic", Args: cobra.NoArgs}),
-		bitcoin.Register(&cobra.Command{Use: "bitcoin", Args: cobra.NoArgs}),
-		ethereum.Register(&cobra.Command{Use: "ethereum", Args: cobra.NoArgs}),
-		tron.Register(&cobra.Command{Use: "tron", Args: cobra.NoArgs}),
-		solana.Register(&cobra.Command{Use: "solana", Args: cobra.NoArgs}),
+		mnemonic.NewCmd(),
+		bitcoin.NewCmd(),
+		ethereum.NewCmd(),
+		tron.NewCmd(),
+		solana.NewCmd(),
 	)
 
 	return cmd

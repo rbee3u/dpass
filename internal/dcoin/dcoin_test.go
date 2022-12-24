@@ -1,12 +1,41 @@
 package dcoin_test
 
 import (
+	"bytes"
+	"compress/flate"
 	"encoding/hex"
 	"testing"
 
 	"github.com/rbee3u/dpass/internal/dcoin"
 	"github.com/rbee3u/dpass/third_party/github.com/tyler-smith/go-bip32"
 )
+
+func TestCreateEntropyRandomly(t *testing.T) {
+	for s := dcoin.EntropySizeMin; s <= dcoin.EntropySizeMax; s += dcoin.EntropySizeStep {
+		if _, err := dcoin.CreateEntropyRandomly(s); err != nil {
+			t.Fatalf("failed to create entropy randomly: %v", err)
+		}
+	}
+
+	var b []byte
+	for i := 0; i < 1000000; i++ {
+		entropy, err := dcoin.CreateEntropyRandomly(dcoin.EntropySizeMax)
+		if err != nil {
+			t.Fatalf("failed to create entropy randomly: %v", err)
+		}
+
+		b = append(b, entropy...)
+	}
+
+	var z bytes.Buffer
+	f, _ := flate.NewWriter(&z, 9)
+	_, _ = f.Write(b)
+	_ = f.Close()
+
+	if len(b) > z.Len() {
+		t.Errorf("compressed: %d -> %d", len(b), z.Len())
+	}
+}
 
 func TestEntropyToMnemonic(t *testing.T) {
 	tests := []struct {

@@ -24,9 +24,9 @@ func encryptBackendDefault() *encryptBackend {
 	return &encryptBackend{nonceReader: rand.Reader}
 }
 
-func RegisterEncrypt(cmd *cobra.Command) *cobra.Command {
-	b := encryptBackendDefault()
-	cmd.RunE = b.runE
+func NewCmdEncrypt() *cobra.Command {
+	backend := encryptBackendDefault()
+	cmd := &cobra.Command{Use: "encrypt", Args: cobra.NoArgs, RunE: backend.runE}
 
 	return cmd
 }
@@ -90,9 +90,9 @@ func decryptBackendDefault() *decryptBackend {
 	return &decryptBackend{}
 }
 
-func RegisterDecrypt(cmd *cobra.Command) *cobra.Command {
-	b := decryptBackendDefault()
-	cmd.RunE = b.runE
+func NewCmdDecrypt() *cobra.Command {
+	backend := decryptBackendDefault()
+	cmd := &cobra.Command{Use: "decrypt", Args: cobra.NoArgs, RunE: backend.runE}
 
 	return cmd
 }

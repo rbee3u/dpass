@@ -50,14 +50,13 @@ func backendDefault() *backend {
 	}
 }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "ethereum", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
 		"index is the number of address (default %v)", indexDefault))
-
-	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
+	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
 
 	return cmd
@@ -133,6 +132,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.PrivKeyFromBytes(key.Key).PubKey()), nil
 }
 
+//nolint:gomnd
 func pkToAddress(pk *secp256k1.PublicKey) string {
 	data := []byte(hex.EncodeToString(dcoin.Keccak256Sum(pk.SerializeUncompressed()[1:])[12:]))
 

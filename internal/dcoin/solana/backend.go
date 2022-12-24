@@ -53,14 +53,13 @@ func backendDefault() *backend {
 	}
 }
 
-func Register(cmd *cobra.Command) *cobra.Command {
-	b := backendDefault()
-	cmd.RunE = b.runE
+func NewCmd() *cobra.Command {
+	backend := backendDefault()
+	cmd := &cobra.Command{Use: "solana", Args: cobra.NoArgs, RunE: backend.runE}
 
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&backend.account, "account", accountDefault, fmt.Sprintf(
 		"account is the number of address (default %v)", accountDefault))
-
-	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault, fmt.Sprintf(
+	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
 
 	return cmd
@@ -138,15 +137,15 @@ func seedToKey(seed []byte, path []uint32) ([]byte, error) {
 	hash.Write(seed)
 	digest := hash.Sum(nil)
 
-	for i := range path {
-		if path[i] < bip32.FirstHardenedChild {
+	for index := range path {
+		if path[index] < bip32.FirstHardenedChild {
 			return nil, errNonHardenedChild
 		}
 
 		hash = hmac.New(sha512.New, digest[secretSize:])
 		hash.Write([]byte{0})
 		hash.Write(digest[:secretSize])
-		hash.Write(uint32ToBytes(path[i]))
+		hash.Write(uint32ToBytes(path[index]))
 		digest = hash.Sum(nil)
 	}
 
