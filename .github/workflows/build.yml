@@ -2,28 +2,23 @@ name: build
 on:
   pull_request:
   push:
+    branches:
+      - main
 
 jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.19.x]
+        go: [1.19]
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Set up golang
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go-version }}
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
-      - name: Run lint
-        run: golangci-lint run
-      - name: Run test
-        run: go test -v ./...
-      - name: Run build
-        run: |
-          go build -o ./bin/dpass ./cmd/dpass
-          go build -o ./bin/dcoin ./cmd/dcoin
+          go-version: ${{ matrix.go }}
+      - run: |
+          make install-lint
+          make build
+          make test
+          make lint
