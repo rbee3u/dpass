@@ -5,8 +5,8 @@ build:
 test:
 	go test -v --count=1 ./...
 
+install-lint:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+
 lint:
 	golangci-lint run
-
-install-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1

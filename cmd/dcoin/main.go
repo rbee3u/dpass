@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/rbee3u/dpass/internal/dcoin/bitcoin"
+	"github.com/rbee3u/dpass/internal/dcoin/dogecoin"
 	"github.com/rbee3u/dpass/internal/dcoin/ethereum"
 	"github.com/rbee3u/dpass/internal/dcoin/mnemonic"
 	"github.com/rbee3u/dpass/internal/dcoin/solana"
@@ -30,6 +31,7 @@ func newCmd() *cobra.Command {
 		ethereum.NewCmd(),
 		tron.NewCmd(),
 		solana.NewCmd(),
+		dogecoin.NewCmd(),
 	)
 
 	return cmd

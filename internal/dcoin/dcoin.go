@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	ErrInvalidSize   = errors.New("invalid size")
+	errInvalidSize   = errors.New("invalid size")
 	errInvalidWord   = errors.New("invalid word")
 	errInvalidDigest = errors.New("invalid digest")
 )
@@ -77,15 +77,15 @@ func CreateEntropyRandomly(entropySize int) ([]byte, error) {
 
 func checkEntropySize(entropySize int) error {
 	if entropySize%EntropySizeStep != 0 {
-		return fmt.Errorf("entropy size(%v) is not a multipule of %v: %w", entropySize, EntropySizeStep, ErrInvalidSize)
+		return fmt.Errorf("entropy size(%v) is not a multipule of %v: %w", entropySize, EntropySizeStep, errInvalidSize)
 	}
 
 	if entropySize < EntropySizeMin {
-		return fmt.Errorf("entropy size(%v) is less than %v: %w", entropySize, EntropySizeMin, ErrInvalidSize)
+		return fmt.Errorf("entropy size(%v) is less than %v: %w", entropySize, EntropySizeMin, errInvalidSize)
 	}
 
 	if entropySize > EntropySizeMax {
-		return fmt.Errorf("entropy size(%v) is greater than %v: %w", entropySize, EntropySizeMax, ErrInvalidSize)
+		return fmt.Errorf("entropy size(%v) is greater than %v: %w", entropySize, EntropySizeMax, errInvalidSize)
 	}
 
 	return nil
@@ -159,15 +159,15 @@ func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 
 func checkSentenceSize(sentenceSize int) error {
 	if sentenceSize%sentenceSizeStep != 0 {
-		return fmt.Errorf("sentence size(%v) is not a multipule of %v: %w", sentenceSize, sentenceSizeStep, ErrInvalidSize)
+		return fmt.Errorf("sentence size(%v) is not a multipule of %v: %w", sentenceSize, sentenceSizeStep, errInvalidSize)
 	}
 
 	if sentenceSize < sentenceSizeMin {
-		return fmt.Errorf("sentence size(%v) is less than %v: %w", sentenceSize, sentenceSizeMin, ErrInvalidSize)
+		return fmt.Errorf("sentence size(%v) is less than %v: %w", sentenceSize, sentenceSizeMin, errInvalidSize)
 	}
 
 	if sentenceSize > sentenceSizeMax {
-		return fmt.Errorf("sentence size(%v) is greater than %v: %w", sentenceSize, sentenceSizeMax, ErrInvalidSize)
+		return fmt.Errorf("sentence size(%v) is greater than %v: %w", sentenceSize, sentenceSizeMax, errInvalidSize)
 	}
 
 	return nil
