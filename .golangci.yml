@@ -47,6 +47,7 @@ linters:
     - goprintffuncname
     - gosec
     - gosimple
+    - gosmopolitan
     - govet
     - grouper
     - importas
@@ -57,6 +58,7 @@ linters:
     - logrlint
     - maintidx
     - makezero
+    - mirror
     - misspell
     - musttag
     - nakedret
@@ -78,6 +80,7 @@ linters:
     - sqlclosecheck
     - staticcheck
     - stylecheck
+    - tagalign
     - tagliatelle
     - tenv
     - testableexamples
@@ -94,6 +97,7 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
+    - zerologlint
 
 run:
   tests: false
@@ -105,3 +109,4 @@ issues:
     - path: \.go
       linters:
         - exhaustruct
+        - depguard

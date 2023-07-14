@@ -167,9 +167,9 @@ func expandPublicKey(key []byte) (*big.Int, *big.Int) {
 }
 
 func validatePrivateKey(key []byte) error {
-	if fmt.Sprintf("%x", key) == "0000000000000000000000000000000000000000000000000000000000000000" || // if the key is zero
-		bytes.Compare(key, curveParams.N.Bytes()) >= 0 || // or is outside of the curve
-		len(key) != 32 { // or is too short
+	if fmt.Sprintf("%x", key) == "0000000000000000000000000000000000000000000000000000000000000000" || //if the key is zero
+		bytes.Compare(key, curveParams.N.Bytes()) >= 0 || //or is outside of the curve
+		len(key) != 32 { //or is too short
 		return ErrInvalidPrivateKey
 	}
 
@@ -186,7 +186,9 @@ func validateChildPublicKey(key []byte) error {
 	return nil
 }
 
+//
 // Numerical
+//
 func uint32Bytes(i uint32) []byte {
 	bytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(bytes, i)
