@@ -30,6 +30,7 @@ linters:
     - gocheckcompilerdirectives
     - gochecknoglobals
     - gochecknoinits
+    - gochecksumtype
     - gocognit
     - goconst
     - gocritic
@@ -53,6 +54,7 @@ linters:
     - importas
     - ineffassign
     - interfacebloat
+    - inamedparam
     - ireturn
     - lll
     - logrlint
@@ -71,12 +73,15 @@ linters:
     - nonamedreturns
     - nosprintfhostport
     - paralleltest
+    - perfsprint
     - prealloc
     - predeclared
     - promlinter
+    - protogetter
     - reassign
     - revive
     - rowserrcheck
+    - sloglint
     - sqlclosecheck
     - staticcheck
     - stylecheck
@@ -84,6 +89,7 @@ linters:
     - tagliatelle
     - tenv
     - testableexamples
+    - testifylint
     - testpackage
     - thelper
     - tparallel
