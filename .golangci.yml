@@ -82,6 +82,7 @@ linters:
     - revive
     - rowserrcheck
     - sloglint
+    - spancheck
     - sqlclosecheck
     - staticcheck
     - stylecheck
@@ -112,7 +113,7 @@ run:
 
 issues:
   exclude-rules:
-    - path: \.go
+    - path: "^.*\\.go$"
       linters:
         - exhaustruct
         - depguard
