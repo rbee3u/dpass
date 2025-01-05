@@ -35,14 +35,12 @@ func splitBackendDefault() *splitBackend {
 func NewCmdSplit() *cobra.Command {
 	backend := splitBackendDefault()
 	cmd := &cobra.Command{Use: "split", Args: cobra.NoArgs, RunE: backend.runE}
-
 	cmd.Flags().StringVarP(&backend.output, "output", "o", outputDefault,
 		"prefix of output files, use standard output if empty")
 	cmd.Flags().IntVarP(&backend.parts, "parts", "n", partsDefault,
 		"total number of shares to be split into")
 	cmd.Flags().IntVarP(&backend.threshold, "threshold", "m", thresholdDefault,
 		"minimum number of shares to reconstruct")
-
 	return cmd
 }
 
@@ -51,12 +49,10 @@ func (b *splitBackend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read secret: %w", err)
 	}
-
 	blocks, err := b.split(secret)
 	if err != nil {
 		return fmt.Errorf("failed to split: %w", err)
 	}
-
 	for index := range blocks {
 		if len(b.output) == 0 {
 			err = pem.Encode(os.Stdout, blocks[index])
@@ -64,12 +60,10 @@ func (b *splitBackend) runE(_ *cobra.Command, _ []string) error {
 			path := fmt.Sprintf("%s-%v-%v-%v.txt", b.output, b.parts, b.threshold, index)
 			err = os.WriteFile(path, pem.EncodeToMemory(blocks[index]), fileMode)
 		}
-
 		if err != nil {
 			return fmt.Errorf("failed to write block: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -78,7 +72,6 @@ func (b *splitBackend) split(secret []byte) ([]*pem.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to split secret: %w", err)
 	}
-
 	blocks := make([]*pem.Block, len(shares))
 	for index := range shares {
 		blocks[index] = &pem.Block{
@@ -89,7 +82,6 @@ func (b *splitBackend) split(secret []byte) ([]*pem.Block, error) {
 			Bytes: shares[index],
 		}
 	}
-
 	return blocks, nil
 }
 
@@ -102,7 +94,6 @@ func combineBackendDefault() *combineBackend {
 func NewCmdCombine() *cobra.Command {
 	backend := combineBackendDefault()
 	cmd := &cobra.Command{Use: "combine", Args: cobra.NoArgs, RunE: backend.runE}
-
 	return cmd
 }
 
@@ -111,22 +102,18 @@ func (b *combineBackend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read shares: %w", err)
 	}
-
 	var blocks []*pem.Block
 	for block, rest := pem.Decode(data); block != nil; {
 		blocks = append(blocks, block)
 		block, rest = pem.Decode(rest)
 	}
-
 	secret, err := b.combine(blocks)
 	if err != nil {
 		return fmt.Errorf("failed to combine: %w", err)
 	}
-
 	if _, err := os.Stdout.Write(secret); err != nil {
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
-
 	return nil
 }
 
@@ -135,11 +122,9 @@ func (b *combineBackend) combine(blocks []*pem.Block) ([]byte, error) {
 	for _, block := range blocks {
 		shares = append(shares, block.Bytes)
 	}
-
 	secret, err := shamir.Combine(shares)
 	if err != nil {
 		return nil, fmt.Errorf("failed to combine shares: %w", err)
 	}
-
 	return secret, nil
 }

@@ -6,7 +6,6 @@ import (
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
-
 	tests := []struct {
 		account uint32
 		address string
@@ -23,7 +22,6 @@ func TestBackend(t *testing.T) {
 			private: "DmpKZdy3sdf4AJvMHgcHvanJu43SuTuGUBZcM5fsbU1bcydDTZDCiMDhcZHxnQ76aWDYdq4gnQexFan3mVcy8qG",
 		},
 	}
-
 	for _, tt := range tests {
 		pb := backendDefault()
 		pb.account = tt.account

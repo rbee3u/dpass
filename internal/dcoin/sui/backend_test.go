@@ -1,6 +1,8 @@
-package ethereum
+package sui
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
@@ -11,13 +13,13 @@ func TestBackend(t *testing.T) {
 	}{
 		{
 			index:   0,
-			address: "0xF2E68B8894e098AB6b5936906AB5ea73De03712E",
-			private: "17348e94f527e08782ca41f4fc9cf702f143e397630ba8b6dc11d85a1e1dfaad",
+			address: "0xa3dd6730e699123c698ea2e5adb1c7ed423a0678d2b415313df494dd3b4cc4c8",
+			private: "suiprivkey1qpxf0xl457682xmdw4j4yuuddx57xjh32964u0tfaawsjrdhm0r07hdvan6",
 		},
 		{
 			index:   9,
-			address: "0xcFaCBb2323A0529c90E4a25234a2Aa0a21328AfF",
-			private: "0ab1781468d0da1f9021d7be5e9c6e78618f9709d4c043f56f7af0a96418bc39",
+			address: "0x9b82160ca5e699e84bdf219f317b9d3987fc2a5bfb27fe47ed14dace7c0d1915",
+			private: "suiprivkey1qzpfv4cvh9dr5kxkwx8v7eztrhnt9vzuktwc3hgmd0ja9s0tnaydy4s8ffd",
 		},
 	}
 	for _, tt := range tests {

@@ -1,24 +1,23 @@
-package tron
+package sui
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"slices"
 
 	"github.com/rbee3u/dpass/internal/dcoin"
-	"github.com/rbee3u/dpass/pkg/base58"
+	"github.com/rbee3u/dpass/pkg/bech32"
 	"github.com/rbee3u/dpass/pkg/bip3x"
 	"github.com/rbee3u/dpass/pkg/hashx"
-	"github.com/rbee3u/dpass/third_party/github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/spf13/cobra"
 )
 
 const (
 	purposeDefault = 44
-	coinDefault    = 195
+	coinDefault    = 784
 	accountDefault = 0
 	changeDefault  = 0
 	indexDefault   = 0
@@ -55,7 +54,7 @@ func backendDefault() *backend {
 
 func NewCmd() *cobra.Command {
 	backend := backendDefault()
-	cmd := &cobra.Command{Use: "tron", Args: cobra.NoArgs, RunE: backend.runE}
+	cmd := &cobra.Command{Use: "sui", Args: cobra.NoArgs, RunE: backend.runE}
 	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
 		"index is the number of address (default %v)", indexDefault))
 	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
@@ -105,27 +104,27 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
-	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
+	sk, err := bip3x.Ed25519DeriveSk(seed, []uint32{
 		b.purpose + bip3x.FirstHardenedChild,
 		b.coin + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
-		b.change,
-		b.index,
+		b.change + bip3x.FirstHardenedChild,
+		b.index + bip3x.FirstHardenedChild,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to derive sk: %w", err)
 	}
+	privateKey := ed25519.NewKeyFromSeed(sk)
 	if b.secret {
-		return hex.EncodeToString(sk), nil
+		return skToWIF(privateKey[:ed25519.SeedSize]), nil
 	}
-	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
+	return pkToAddress(privateKey[ed25519.SeedSize:]), nil
 }
 
-func pkToAddress(x, y *big.Int) string {
-	pk := make([]byte, 64)
-	x.FillBytes(pk[:32])
-	y.FillBytes(pk[32:])
-	data := slices.Concat([]byte{'A'}, hashx.Keccak256Sum(pk)[12:])
-	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-	return base58.Encode(slices.Concat(data, digest))
+func skToWIF(sk []byte) string {
+	return bech32.Encode("suiprivkey", nil, slices.Concat([]byte{0}, sk))
+}
+
+func pkToAddress(pk []byte) string {
+	return "0x" + hex.EncodeToString(hashx.Blake2b256Sum(slices.Concat([]byte{0}, pk)))
 }

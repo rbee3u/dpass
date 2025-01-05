@@ -4,7 +4,6 @@ import "testing"
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
-
 	tests := []struct {
 		index   uint32
 		address string
@@ -21,7 +20,6 @@ func TestBackend(t *testing.T) {
 			private: "QTL7FHjHVuu9uJvSefFY6yQK12yViWAESXFxgdroqBKqMByZDJy8",
 		},
 	}
-
 	for _, tt := range tests {
 		pb := backendDefault()
 		pb.index = tt.index

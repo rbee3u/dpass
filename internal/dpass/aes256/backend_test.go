@@ -26,7 +26,6 @@ func TestEncryptBackend(t *testing.T) {
 			encodedNonceAndCiphertext: []byte("63636336366331363830343989ef5558249eba6379f1532d03952d41300a41fef33579cac343d621224bde51bfbe9730ae2c11d54dfdb905884cc7a4624b9a7a7db954ebae10a07f4eab0cdc67b01b32e426d086b267f983b53db9ee75"),
 		},
 	}
-
 	for _, tt := range tests {
 		eb := encryptBackendDefault()
 		eb.nonceReader = tt.nonceReader
@@ -34,7 +33,6 @@ func TestEncryptBackend(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to encrypt: %v", err)
 		}
-
 		if !bytes.Equal(encodedNonceAndCiphertext, tt.encodedNonceAndCiphertext) {
 			t.Errorf("got = %s, want = %s", encodedNonceAndCiphertext, tt.encodedNonceAndCiphertext)
 		}
@@ -58,14 +56,12 @@ func TestDecryptBackend(t *testing.T) {
 			plaintext:                 []byte("_LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLong"),
 		},
 	}
-
 	for _, tt := range tests {
 		db := decryptBackendDefault()
 		plaintext, err := db.decrypt(tt.key, tt.encodedNonceAndCiphertext)
 		if err != nil {
 			t.Fatalf("failed to decrypt: %v", err)
 		}
-
 		if !bytes.Equal(plaintext, tt.plaintext) {
 			t.Errorf("got = %v, want = %v", plaintext, tt.plaintext)
 		}

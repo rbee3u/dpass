@@ -21,7 +21,6 @@ func newCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "dpass", Args: cobra.NoArgs}
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
-
 	cmd.AddCommand(
 		aes256.NewCmdEncrypt(),
 		aes256.NewCmdDecrypt(),
@@ -29,6 +28,5 @@ func newCmd() *cobra.Command {
 		shamir.NewCmdCombine(),
 		qrcode.NewCmd(),
 	)
-
 	return cmd
 }

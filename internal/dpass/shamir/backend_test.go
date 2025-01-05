@@ -8,7 +8,6 @@ import (
 
 func TestSplitBackend(t *testing.T) {
 	secret := []byte("To be, or not to be, that is the question.")
-
 	sb := splitBackendDefault()
 	sb.parts = 9
 	sb.threshold = 4
@@ -16,14 +15,12 @@ func TestSplitBackend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to split: %v", err)
 	}
-
 	for _, group := range groups94(blocks) {
 		cb := combineBackendDefault()
 		combinedSecret, err := cb.combine(group)
 		if err != nil {
 			t.Fatalf("failed to combine: %v", err)
 		}
-
 		if !bytes.Equal(combinedSecret, secret) {
 			t.Fatalf("got = %v, want = %v", combinedSecret, secret)
 		}
@@ -32,7 +29,6 @@ func TestSplitBackend(t *testing.T) {
 
 func TestCombineBackend(t *testing.T) {
 	secret := []byte("To be, or not to be, that is the question.")
-
 	blocks := make([]*pem.Block, 9)
 	blocks[0], _ = pem.Decode([]byte(`
 -----BEGIN SHAMIR-----
@@ -115,14 +111,12 @@ N: 9
 1N3xLp2dDR1NlNvVSUPBht5Z/UYtu5ZhtOrvzc+ljz1a7VorCwfCZ7b3EQ==
 -----END SHAMIR-----
 `))
-
 	for _, group := range groups94(blocks) {
 		cb := combineBackendDefault()
 		combinedSecret, err := cb.combine(group)
 		if err != nil {
 			t.Fatalf("failed to combine: %v", err)
 		}
-
 		if !bytes.Equal(combinedSecret, secret) {
 			t.Fatalf("got = %v, want = %v", combinedSecret, secret)
 		}
@@ -131,7 +125,6 @@ N: 9
 
 func groups94(blocks []*pem.Block) [][]*pem.Block {
 	var groups [][]*pem.Block
-
 	for a := 0; a < 9; a++ {
 		for b := 0; b < a; b++ {
 			for c := 0; c < b; c++ {
@@ -143,6 +136,5 @@ func groups94(blocks []*pem.Block) [][]*pem.Block {
 			}
 		}
 	}
-
 	return groups
 }

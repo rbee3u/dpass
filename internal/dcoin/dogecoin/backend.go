@@ -3,12 +3,15 @@ package dogecoin
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
+	"slices"
 
 	"github.com/rbee3u/dpass/internal/dcoin"
+	"github.com/rbee3u/dpass/pkg/base58"
+	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/hashx"
 	"github.com/rbee3u/dpass/third_party/github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/rbee3u/dpass/third_party/github.com/mr-tron/base58"
-	"github.com/rbee3u/dpass/third_party/github.com/tyler-smith/go-bip32"
 	"github.com/spf13/cobra"
 )
 
@@ -52,36 +55,29 @@ func backendDefault() *backend {
 func NewCmd() *cobra.Command {
 	backend := backendDefault()
 	cmd := &cobra.Command{Use: "dogecoin", Args: cobra.NoArgs, RunE: backend.runE}
-
 	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
 		"index is the number of address (default %v)", indexDefault))
 	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
-
 	return cmd
 }
 
 func (b *backend) checkArguments() error {
-	if b.purpose >= bip32.FirstHardenedChild {
+	if b.purpose >= bip3x.FirstHardenedChild {
 		return errInvalidPurpose
 	}
-
-	if b.coin >= bip32.FirstHardenedChild {
+	if b.coin >= bip3x.FirstHardenedChild {
 		return errInvalidCoin
 	}
-
-	if b.account >= bip32.FirstHardenedChild {
+	if b.account >= bip3x.FirstHardenedChild {
 		return errInvalidAccount
 	}
-
-	if b.change >= bip32.FirstHardenedChild {
+	if b.change >= bip3x.FirstHardenedChild {
 		return errInvalidChange
 	}
-
-	if b.index >= bip32.FirstHardenedChild {
+	if b.index >= bip3x.FirstHardenedChild {
 		return errInvalidIndex
 	}
-
 	return nil
 }
 
@@ -90,16 +86,13 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
-
 	result, err := b.getResult(mnemonic)
 	if err != nil {
 		return fmt.Errorf("failed to get result: %w", err)
 	}
-
 	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)
 	}
-
 	return nil
 }
 
@@ -107,47 +100,43 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkArguments(); err != nil {
 		return "", fmt.Errorf("failed to check arguments: %w", err)
 	}
-
-	seed, err := dcoin.MnemonicToSeed(mnemonic, "")
+	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
-
-	key, err := dcoin.SeedToKey(seed, []uint32{
-		bip32.FirstHardenedChild + b.purpose,
-		bip32.FirstHardenedChild + b.coin,
-		bip32.FirstHardenedChild + b.account,
+	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
+		b.purpose + bip3x.FirstHardenedChild,
+		b.coin + bip3x.FirstHardenedChild,
+		b.account + bip3x.FirstHardenedChild,
 		b.change,
 		b.index,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to convert seed to key: %w", err)
+		return "", fmt.Errorf("failed to derive sk: %w", err)
 	}
-
 	if b.secret {
-		return b.skToWIF(secp256k1.PrivKeyFromBytes(key.Key)), nil
+		return skToWIF(sk), nil
 	}
-
-	return b.pkToAddress(secp256k1.PrivKeyFromBytes(key.Key).PubKey()), nil
+	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-//nolint:gomnd
-func (b *backend) skToWIF(sk *secp256k1.PrivateKey) string {
-	data := make([]byte, 0, 38)
-	data = append(data, 0x9e)
-	data = append(data, sk.Serialize()...)
-	data = append(data, 1)
-	data = append(data, dcoin.Sha256Sum(dcoin.Sha256Sum(data))[:4]...)
-
-	return base58.Encode(data)
+func skToWIF(sk []byte) string {
+	data := slices.Concat([]byte{0x9e}, sk, []byte{1})
+	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
+	return base58.Encode(slices.Concat(data, digest))
 }
 
-//nolint:gomnd
-func (b *backend) pkToAddress(pk *secp256k1.PublicKey) string {
-	data := make([]byte, 0, 25)
-	data = append(data, 0x1e)
-	data = append(data, dcoin.RipeMD160Sum(dcoin.Sha256Sum(pk.SerializeCompressed()))...)
-	data = append(data, dcoin.Sha256Sum(dcoin.Sha256Sum(data))[:4]...)
+func pkToAddress(x, y *big.Int) string {
+	data := make([]byte, 33)
+	data[0] = 2
+	x.FillBytes(data[1:33])
+	data[0] += byte(y.Bit(0))
+	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
+	return pkHashToAddress44(pkHash)
+}
 
-	return base58.Encode(data)
+func pkHashToAddress44(pkHash []byte) string {
+	data := slices.Concat([]byte{0x1e}, pkHash)
+	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
+	return base58.Encode(slices.Concat(data, digest))
 }

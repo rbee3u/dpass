@@ -9,6 +9,7 @@ import (
 	"github.com/rbee3u/dpass/internal/dcoin/ethereum"
 	"github.com/rbee3u/dpass/internal/dcoin/mnemonic"
 	"github.com/rbee3u/dpass/internal/dcoin/solana"
+	"github.com/rbee3u/dpass/internal/dcoin/sui"
 	"github.com/rbee3u/dpass/internal/dcoin/tron"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,6 @@ func newCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "dcoin", Args: cobra.NoArgs}
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
-
 	cmd.AddCommand(
 		mnemonic.NewCmd(),
 		bitcoin.NewCmd(),
@@ -32,7 +32,7 @@ func newCmd() *cobra.Command {
 		tron.NewCmd(),
 		solana.NewCmd(),
 		dogecoin.NewCmd(),
+		sui.NewCmd(),
 	)
-
 	return cmd
 }

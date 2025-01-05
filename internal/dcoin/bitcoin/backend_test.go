@@ -4,7 +4,6 @@ import "testing"
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
-
 	tests := []struct {
 		purpose uint32
 		network string
@@ -97,7 +96,6 @@ func TestBackend(t *testing.T) {
 			private: "cNKY7rQ158hNMNEadp3Bysdpj4hvhKiqUAr6NeRDWruFMNVHbig9",
 		},
 	}
-
 	for _, tt := range tests {
 		pb := backendDefault()
 		pb.purpose = tt.purpose

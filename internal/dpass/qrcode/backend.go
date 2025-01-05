@@ -10,11 +10,6 @@ import (
 	"rsc.io/qr"
 )
 
-var (
-	errInvalidLevel = errors.New("invalid level")
-	errInvalidQuiet = errors.New("invalid quiet")
-)
-
 const (
 	levelDefault = levelL
 	levelL       = "L"
@@ -27,6 +22,11 @@ const (
 	quietMax     = 9
 
 	swapDefault = false
+)
+
+var (
+	errInvalidLevel = errors.New("invalid level")
+	errInvalidQuiet = errors.New("invalid quiet")
 )
 
 type backend struct {
@@ -47,14 +47,12 @@ func backendDefault() *backend {
 func NewCmd() *cobra.Command {
 	backend := backendDefault()
 	cmd := &cobra.Command{Use: "qrcode", Args: cobra.NoArgs, RunE: backend.runE}
-
 	cmd.Flags().StringVarP(&backend.level, "level", "l", levelDefault, fmt.Sprintf(
 		"error correction level (%q | %q | %q | %q)", levelL, levelM, levelQ, levelH))
 	cmd.Flags().IntVarP(&backend.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
 		"quiet zone border size, must be in range [%v, %v]", quietMin, quietMax))
 	cmd.Flags().BoolVarP(&backend.swap, "swap", "s", swapDefault, fmt.Sprintf(
 		"swap black and white pixels (default %t)", swapDefault))
-
 	return cmd
 }
 
@@ -62,21 +60,17 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err := b.checkArguments(); err != nil {
 		return fmt.Errorf("failed to check arguments: %w", err)
 	}
-
 	text, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("failed to read text: %w", err)
 	}
-
 	code, err := qr.Encode(string(text), b.levelInt)
 	if err != nil {
 		return fmt.Errorf("failed to encode text: %w", err)
 	}
-
 	if _, err := os.Stdout.Write(b.transformCode(code)); err != nil {
 		return fmt.Errorf("failed to write transformed code: %w", err)
 	}
-
 	return nil
 }
 
@@ -93,28 +87,23 @@ func (b *backend) checkArguments() error {
 	default:
 		return errInvalidLevel
 	}
-
 	if b.quiet < quietMin || quietMax < b.quiet {
 		return errInvalidQuiet
 	}
-
 	return nil
 }
 
 func (b *backend) transformCode(code *qr.Code) []byte {
 	var data []byte
-
-	for y := 0; y < b.quiet+code.Size+b.quiet; y++ {
-		for x := 0; x < b.quiet+code.Size+b.quiet; x++ {
+	for y := range b.quiet + code.Size + b.quiet {
+		for x := range b.quiet + code.Size + b.quiet {
 			if code.Black(x-b.quiet, y-b.quiet) != b.swap {
 				data = append(data, "\u001B[40m  "...)
 			} else {
 				data = append(data, "\u001B[47m  "...)
 			}
 		}
-
 		data = append(data, "\u001B[0m\n"...)
 	}
-
 	return data
 }
