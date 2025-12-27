@@ -58,7 +58,7 @@ var (
 func generateWord2Value() map[string]uint32 {
 	word2value := make(map[string]uint32)
 	for value, word := range value2word {
-		word2value[word] = uint32(value) //nolint:gosec
+		word2value[word] = uint32(value)
 	}
 	return word2value
 }

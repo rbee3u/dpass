@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/ripemd160" //nolint:gosec,staticcheck
+	"golang.org/x/crypto/ripemd160"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -21,7 +21,7 @@ func Keccak256Sum(data []byte) []byte {
 }
 
 func RipeMD160Sum(data []byte) []byte {
-	hasher := ripemd160.New() //nolint:gosec
+	hasher := ripemd160.New()
 	_, _ = hasher.Write(data)
 	return hasher.Sum(nil)
 }

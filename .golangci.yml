@@ -1,130 +1,47 @@
-linters:
-  disable-all: true
-  enable:
-    - asasalint
-    - asciicheck
-    - bidichk
-    - bodyclose
-    - canonicalheader
-    - containedctx
-    - contextcheck
-    - copyloopvar
-    - cyclop
-    - decorder
-    - depguard
-    - dogsled
-    - dupl
-    - dupword
-    - durationcheck
-    - err113
-    - errcheck
-    - errchkjson
-    - errname
-    - errorlint
-    - exhaustive
-    - exhaustruct
-    - exptostd
-    - fatcontext
-    - forbidigo
-    - forcetypeassert
-    - funlen
-    - gci
-    - ginkgolinter
-    - gocheckcompilerdirectives
-    - gochecknoglobals
-    - gochecknoinits
-    - gochecksumtype
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - godot
-    - godox
-    - gofmt
-    - gofumpt
-    - goheader
-    - goimports
-    - gomoddirectives
-    - gomodguard
-    - goprintffuncname
-    - gosec
-    - gosimple
-    - gosmopolitan
-    - govet
-    - grouper
-    - iface
-    - importas
-    - inamedparam
-    - ineffassign
-    - interfacebloat
-    - intrange
-    - ireturn
-    - lll
-    - loggercheck
-    - maintidx
-    - makezero
-    - mirror
-    - misspell
-    - mnd
-    - musttag
-    - nakedret
-    - nestif
-    - nilerr
-    - nilnesserr
-    - nilnil
-    - nlreturn
-    - noctx
-    - nolintlint
-    - nonamedreturns
-    - nosprintfhostport
-    - paralleltest
-    - perfsprint
-    - prealloc
-    - predeclared
-    - promlinter
-    - protogetter
-    - reassign
-    - recvcheck
-    - revive
-    - rowserrcheck
-    - sloglint
-    - spancheck
-    - sqlclosecheck
-    - staticcheck
-    - stylecheck
-    - tagalign
-    - tagliatelle
-    - testableexamples
-    - testifylint
-    - testpackage
-    - thelper
-    - tparallel
-    - typecheck
-    - unconvert
-    - unparam
-    - unused
-    - usestdlibvars
-    - usetesting
-    - varnamelen
-    - wastedassign
-    - whitespace
-    - wrapcheck
-    - wsl
-    - zerologlint
+version: '2'
 
 run:
   tests: false
 
-issues:
-  exclude-dirs:
-    - third_party
-  exclude-rules:
-    - path: '^.*\.go$'
-      linters:
-        - exhaustruct
-        - depguard
-        - gochecknoglobals
-        - mnd
-        - nlreturn
-        - varnamelen
-        - wsl
+linters:
+  default: 'all'
+  disable: [ 'wsl' ]
+  exclusions:
+    paths:
+      - 'third_party'
+    rules:
+      - path: '^.*\.go$'
+        linters:
+          - 'gochecknoglobals'
+          - 'intrange'
+          - 'noinlineerr'
+          - 'nonamedreturns'
+  settings:
+    cyclop:
+      max-complexity: 100
+    depguard:
+      rules:
+        main:
+          allow:
+            - '$gostd'
+            - 'github.com/rbee3u/dpass'
+            - 'github.com/spf13/cobra'
+            - 'golang.org/x/crypto'
+            - 'golang.org/x/term'
+            - 'rsc.io/qr'
+    exhaustruct:
+      exclude: [ '^.*$' ]
+    gosec:
+      excludes: [ 'G115', 'G406', 'G507', 'G602' ]
+    mnd:
+      ignored-files: [ '^.*\.go$' ]
+    nlreturn:
+      block-size: 1000
+    revive:
+      rules: [ { name: 'exported', disabled: true } ]
+    staticcheck:
+      checks: [ "all", "-SA1019", "-ST1000" ]
+    varnamelen:
+      min-name-length: 1
+    wsl_v5:
+      default: 'none'

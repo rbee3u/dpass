@@ -59,7 +59,7 @@ func NewEncoding(alphabet string) (*Encoding, error) {
 	}
 	encoding := &Encoding{encode: alphabet}
 	encoding.decode = bytes.Repeat([]byte{'\xff'}, int(IBase))
-	for i := 0; i < len(alphabet); i++ { //nolint:intrange
+	for i := 0; i < len(alphabet); i++ {
 		if encoding.decode[alphabet[i]] != '\xff' {
 			return nil, InvalidAlphabetError{v: alphabet}
 		}

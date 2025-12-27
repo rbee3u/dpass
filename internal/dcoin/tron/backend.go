@@ -12,7 +12,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/base58"
 	"github.com/rbee3u/dpass/pkg/bip3x"
 	"github.com/rbee3u/dpass/pkg/hashx"
-	"github.com/rbee3u/dpass/third_party/github.com/decred/dcrd/dcrec/secp256k1"
+	"github.com/rbee3u/dpass/pkg/secp256k1"
 	"github.com/spf13/cobra"
 )
 

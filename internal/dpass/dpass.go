@@ -9,7 +9,7 @@ import (
 	"golang.org/x/term"
 )
 
-func ReadPassword(prompt string) (password []byte, err error) { //nolint:nonamedreturns
+func ReadPassword(prompt string) (password []byte, err error) {
 	_, _ = fmt.Fprint(os.Stderr, prompt)
 	fileDescriptor := syscall.Stdin
 	if !term.IsTerminal(fileDescriptor) {

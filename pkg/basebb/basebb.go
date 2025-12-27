@@ -57,7 +57,7 @@ func NewTransformer(iBase uint32, oBase uint32) (*Transformer, error) {
 
 func (t *Transformer) Transform(in []byte) ([]byte, error) {
 	zeros := 0
-	for ; zeros < len(in) && in[zeros] == 0; zeros++ { //nolint:revive
+	for ; zeros < len(in) && in[zeros] == 0; zeros++ {
 	}
 	out := make([]byte, zeros+int(math.Ceil(float64(len(in)-zeros)*t.ratio))+9)
 	high1 := len(out)
