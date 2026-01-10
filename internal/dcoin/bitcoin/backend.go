@@ -86,7 +86,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
 	cmd.Flags().BoolVar(&backend.decompress, "decompress", decompressDefault, fmt.Sprintf(
-		"compress the public key or not (default %t)", decompressDefault))
+		"decompress the public key or not (default %t)", decompressDefault))
 	return cmd
 }
 
