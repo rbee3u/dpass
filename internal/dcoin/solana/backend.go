@@ -16,7 +16,6 @@ const (
 	purposeDefault = 44
 	coinDefault    = 501
 	accountDefault = 0
-	changeDefault  = 0
 	secretDefault  = false
 )
 
@@ -24,14 +23,12 @@ var (
 	errInvalidPurpose = errors.New("invalid purpose")
 	errInvalidCoin    = errors.New("invalid coin")
 	errInvalidAccount = errors.New("invalid account")
-	errInvalidChange  = errors.New("invalid change")
 )
 
 type backend struct {
 	purpose uint32
 	coin    uint32
 	account uint32
-	change  uint32
 	secret  bool
 }
 
@@ -40,7 +37,6 @@ func backendDefault() *backend {
 		purpose: purposeDefault,
 		coin:    coinDefault,
 		account: accountDefault,
-		change:  changeDefault,
 		secret:  secretDefault,
 	}
 }
@@ -64,9 +60,6 @@ func (b *backend) checkArguments() error {
 	}
 	if b.account >= bip3x.FirstHardenedChild {
 		return errInvalidAccount
-	}
-	if b.change >= bip3x.FirstHardenedChild {
-		return errInvalidChange
 	}
 	return nil
 }
@@ -98,7 +91,6 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		b.purpose + bip3x.FirstHardenedChild,
 		b.coin + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
-		b.change + bip3x.FirstHardenedChild,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to derive sk: %w", err)

@@ -13,13 +13,13 @@ func TestBackend(t *testing.T) {
 	}{
 		{
 			account: 0,
-			address: "2U37cGBQw7SV1FGtJ7hS2WEysirRprTeJxtg6QMqwV39",
-			private: "4ur2z2DhVHNBTvNQqUVShkB52n9FoxnjnAvs39Q3cBZfjS3fH3gxDj8KNd2HifJQsUzjWAVufdjRoUv5tfDWsgJf",
+			address: "5TkaGes9qsFAobA3iKyeGHaf5JNARzo72WX4iRvhN5yw",
+			private: "35cXrG3kFDbQ3Pi32cj5ihXCkM9CPYZxcuJxcvvbaXZqGpLf64jdBjPT2wGG1yjR4SSxDoETB3VjwDaK5ZwnUb2M",
 		},
 		{
 			account: 9,
-			address: "3cTedxyvDJUNhdH3AENbmKGyztWtKkrx7GX63trES7nz",
-			private: "DmpKZdy3sdf4AJvMHgcHvanJu43SuTuGUBZcM5fsbU1bcydDTZDCiMDhcZHxnQ76aWDYdq4gnQexFan3mVcy8qG",
+			address: "89z6CUdzCicsSCWqW9sQCxf32YAK63wSiGCMFGaGLpFb",
+			private: "5Qb2yH7s3aD2meWvBgSktureGAwqksMRJBNute2tZkDSCGr7JUmPiqTHhBtiA9CgSPzXXH5U7NfSTHTARY2At2hP",
 		},
 	}
 	for _, tt := range tests {
