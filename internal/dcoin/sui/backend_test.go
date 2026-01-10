@@ -7,7 +7,7 @@ import (
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
-		index   uint32
+		index   int32
 		address string
 		private string
 	}{

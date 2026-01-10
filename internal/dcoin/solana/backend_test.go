@@ -7,24 +7,24 @@ import (
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
-		account uint32
+		index   int32
 		address string
 		private string
 	}{
 		{
-			account: 0,
-			address: "5TkaGes9qsFAobA3iKyeGHaf5JNARzo72WX4iRvhN5yw",
-			private: "35cXrG3kFDbQ3Pi32cj5ihXCkM9CPYZxcuJxcvvbaXZqGpLf64jdBjPT2wGG1yjR4SSxDoETB3VjwDaK5ZwnUb2M",
+			index:   0,
+			address: "5jn67z6icfWYToBodAnn28CJENiq4R7CCEJn3RWQmpk6",
+			private: "5znd4tyK9QPiCjxpQ94fYBgShKes3uWq5cwucSmFpYAh7DMpFPVhFTa7UH71rx5cLjJPb2piFExkMMaYJ8gUu6p6",
 		},
 		{
-			account: 9,
-			address: "89z6CUdzCicsSCWqW9sQCxf32YAK63wSiGCMFGaGLpFb",
-			private: "5Qb2yH7s3aD2meWvBgSktureGAwqksMRJBNute2tZkDSCGr7JUmPiqTHhBtiA9CgSPzXXH5U7NfSTHTARY2At2hP",
+			index:   9,
+			address: "8V8WRim5cGiFtJ8QrHU8Ve9VATi9DFpQA1axnDWAYvXk",
+			private: "2wRBreTahtVmdgrad38XS7qn1JUu4w1kH28yGoqaQSXsowLdGXnpENAztF7xdn1afJuSdzHhrMPQ37ssKRZobRyt",
 		},
 	}
 	for _, tt := range tests {
 		pb := backendDefault()
-		pb.account = tt.account
+		pb.index = tt.index
 		address, err := pb.getResult(mnemonic)
 		if err != nil {
 			t.Fatalf("failed to get address: %v", err)
@@ -33,7 +33,7 @@ func TestBackend(t *testing.T) {
 			t.Errorf("address: got = %s, want = %s", address, tt.address)
 		}
 		sb := backendDefault()
-		sb.account = tt.account
+		sb.index = tt.index
 		sb.secret = true
 		private, err := sb.getResult(mnemonic)
 		if err != nil {

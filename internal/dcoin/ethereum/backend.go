@@ -55,8 +55,12 @@ func backendDefault() *backend {
 func NewCmd() *cobra.Command {
 	backend := backendDefault()
 	cmd := &cobra.Command{Use: "ethereum", Args: cobra.NoArgs, RunE: backend.runE}
+	cmd.Flags().Uint32Var(&backend.account, "account", accountDefault, fmt.Sprintf(
+		"account number of address (default %v)", accountDefault))
+	cmd.Flags().Uint32Var(&backend.change, "change", changeDefault, fmt.Sprintf(
+		"change number of address (default %v)", changeDefault))
 	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
-		"index is the number of address (default %v)", indexDefault))
+		"index number of address (default %v)", indexDefault))
 	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault, fmt.Sprintf(
 		"show secret instead of address (default %t)", secretDefault))
 	return cmd
