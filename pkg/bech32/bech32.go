@@ -1,11 +1,15 @@
+// Package bech32 encodes data as Bech32 strings.
 package bech32
 
 import (
 	"bytes"
 )
 
+// alphabet is the Bech32 character set in value order (indices 0–31).
 const alphabet = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
+// Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
+// vs is prepended to the payload as 5-bit values (e.g. witness version); in is the remaining data bits.
 func Encode(hrp string, vs, in []byte) string {
 	vsin, remain, shift := bytes.Clone(vs), uint32(0), 0
 	for i := range in {
@@ -16,6 +20,7 @@ func Encode(hrp string, vs, in []byte) string {
 			remain &= (1 << shift) - 1
 		}
 	}
+
 	if shift > 0 {
 		vsin = append(vsin, byte(remain<<(5-shift)))
 	}
@@ -23,11 +28,13 @@ func Encode(hrp string, vs, in []byte) string {
 	data := make([]byte, 0, len(hrp)+1+len(vsin))
 	data = append(data, hrp...)
 	data = append(data, '1')
+
 	for i := range vsin {
 		data = append(data, alphabet[vsin[i]])
 	}
 
 	polymod := uint32(1)
+
 	iterate := func(value uint32) {
 		polymod, value = ((polymod&0x1ffffff)<<5)^value, polymod
 		polymod ^= (1 & (value >> 25)) * 0x3b6a57b2
@@ -36,16 +43,21 @@ func Encode(hrp string, vs, in []byte) string {
 		polymod ^= (1 & (value >> 28)) * 0x3d4233dd
 		polymod ^= (1 & (value >> 29)) * 0x2a1462b3
 	}
+
 	for i := range len(hrp) {
 		iterate(uint32(hrp[i] >> 5))
 	}
+
 	iterate(0)
+
 	for i := range len(hrp) {
 		iterate(uint32(hrp[i] & 31))
 	}
+
 	for i := range vsin {
 		iterate(uint32(vsin[i]))
 	}
+
 	for range 6 {
 		iterate(0)
 	}
