@@ -66,8 +66,57 @@ func TestEncode(t *testing.T) {
 			require.NoError(t, err)
 			in, err := hex.DecodeString(tt.in0x)
 			require.NoError(t, err)
-			out := bech32.Encode(tt.hrp, vs, in)
+			out, err := bech32.EncodeChecked(tt.hrp, vs, in)
+			require.NoError(t, err)
 			require.Equal(t, tt.out, out)
+		})
+	}
+}
+
+func TestEncodeErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		hrp        string
+		vs         []byte
+		in         []byte
+		requireErr func(*testing.T, error)
+	}{
+		{
+			name: "empty hrp",
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.EmptyHrpError
+				require.ErrorAs(t, err, &target)
+			},
+		},
+		{
+			name: "uppercase hrp",
+			hrp:  "BC",
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidHrpCharError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, byte('B'), target.Char)
+			},
+		},
+		{
+			name: "invalid version value",
+			hrp:  "bc",
+			vs:   []byte{32},
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidDataValueError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, "version", target.Part)
+				require.Equal(t, 0, target.Offset)
+				require.Equal(t, byte(32), target.Value)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := bech32.EncodeChecked(tt.hrp, tt.vs, tt.in)
+			require.Error(t, err)
+			tt.requireErr(t, err)
+			require.Empty(t, out)
 		})
 	}
 }

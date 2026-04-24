@@ -30,7 +30,8 @@ func main() {
 		Long: "dpass is a CLI toolkit that protects secrets with Shamir splitting and AES-256-GCM\n" +
 			"encryption, generates BIP-39 mnemonics, and derives addresses or private keys for\n" +
 			"Bitcoin, Ethereum, Tron, Solana, Dogecoin, and Sui.",
-		Example: "  printf 'correct horse battery staple' | dpass split\n" +
+		Example: "  printf 'hello' | dpass encrypt\n" +
+			"  printf 'correct horse battery staple' | dpass split\n" +
 			"  cat shares.pem | dpass combine\n" +
 			"  dpass mnemonic | dpass bitcoin",
 		Args:          cobra.NoArgs,

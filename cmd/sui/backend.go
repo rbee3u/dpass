@@ -120,7 +120,7 @@ func (b *backend) checkArguments() error {
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := helper.ReadMnemonic()
 	if err != nil {
-		return fmt.Errorf("failed to read mnemonic: %w", err)
+		return err
 	}
 
 	result, err := b.getResult(mnemonic)
@@ -166,15 +166,26 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 
 	privateKey := ed25519.NewKeyFromSeed(sk)
 	if b.secret {
-		return skToWIF(privateKey[:ed25519.SeedSize]), nil
+		secret, err := skToWIF(privateKey[:ed25519.SeedSize])
+		if err != nil {
+			return "", err
+		}
+
+		return secret, nil
 	}
 
 	return pkToAddress(privateKey[ed25519.SeedSize:]), nil
 }
 
 // skToWIF Bech32-encodes the 32-byte seed with scheme tag suiprivkey (flag byte 0).
-func skToWIF(sk []byte) string {
-	return bech32.Encode("suiprivkey", nil, slices.Concat([]byte{0}, sk))
+
+func skToWIF(sk []byte) (string, error) {
+	key, err := bech32.EncodeChecked("suiprivkey", nil, slices.Concat([]byte{0}, sk))
+	if err != nil {
+		return "", fmt.Errorf("failed to encode suiprivkey: %w", err)
+	}
+
+	return key, nil
 }
 
 // pkToAddress hashes flag 0x00||pubkey with BLAKE2b-256 and hex-encodes with 0x prefix.

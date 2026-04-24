@@ -12,7 +12,7 @@ type invalidPurposeError struct {
 }
 
 func (e invalidPurposeError) Error() string {
-	return fmt.Sprintf("invalid purpose (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid purpose (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
 // invalidCoinError reports a --coin flag that would exceed the hardened boundary.
@@ -21,7 +21,7 @@ type invalidCoinError struct {
 }
 
 func (e invalidCoinError) Error() string {
-	return fmt.Sprintf("invalid coin (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid coin (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
@@ -30,7 +30,7 @@ type invalidAccountError struct {
 }
 
 func (e invalidAccountError) Error() string {
-	return fmt.Sprintf("invalid account (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
 // invalidChangeError reports a --change flag outside the accepted range.

@@ -3,14 +3,68 @@ package bech32
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // alphabet is the Bech32 character set in value order (indices 0–31).
 const alphabet = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
+// EmptyHrpError reports a missing human-readable part.
+type EmptyHrpError struct{}
+
+func (e EmptyHrpError) Error() string {
+	return "bech32: empty HRP"
+}
+
+// InvalidHrpCharError reports an unsupported HRP byte.
+type InvalidHrpCharError struct {
+	Char byte
+}
+
+func (e InvalidHrpCharError) Error() string {
+	return fmt.Sprintf("bech32: invalid HRP character %#U", e.Char)
+}
+
+// InvalidDataValueError reports a value outside the 5-bit Bech32 alphabet range.
+type InvalidDataValueError struct {
+	Part   string
+	Offset int
+	Value  byte
+}
+
+func (e InvalidDataValueError) Error() string {
+	return fmt.Sprintf("bech32: invalid %s value at offset %d (got %d, must be <= 31)", e.Part, e.Offset, e.Value)
+}
+
 // Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
 // vs is prepended to the payload as 5-bit values (e.g. witness version); in is the remaining data bits.
 func Encode(hrp string, vs, in []byte) string {
+	out, err := EncodeChecked(hrp, vs, in)
+	if err != nil {
+		panic(err)
+	}
+
+	return out
+}
+
+// EncodeChecked returns a Bech32 string or an error when hrp/data are invalid.
+func EncodeChecked(hrp string, vs, in []byte) (string, error) {
+	if len(hrp) == 0 {
+		return "", EmptyHrpError{}
+	}
+
+	for i := range len(hrp) {
+		if hrp[i] < 33 || hrp[i] > 126 || ('A' <= hrp[i] && hrp[i] <= 'Z') {
+			return "", InvalidHrpCharError{Char: hrp[i]}
+		}
+	}
+
+	for i := range vs {
+		if vs[i] >= 32 {
+			return "", InvalidDataValueError{Part: "version", Offset: i, Value: vs[i]}
+		}
+	}
+
 	vsin, remain, shift := bytes.Clone(vs), uint32(0), 0
 	for i := range in {
 		remain, shift = (remain<<8)|uint32(in[i]), shift+8
@@ -30,6 +84,10 @@ func Encode(hrp string, vs, in []byte) string {
 	data = append(data, '1')
 
 	for i := range vsin {
+		if vsin[i] >= 32 {
+			return "", InvalidDataValueError{Part: "payload", Offset: i, Value: vsin[i]}
+		}
+
 		data = append(data, alphabet[vsin[i]])
 	}
 
@@ -65,5 +123,5 @@ func Encode(hrp string, vs, in []byte) string {
 	return string(append(data,
 		alphabet[(polymod>>25)&31], alphabet[(polymod>>20)&31], alphabet[(polymod>>15)&31],
 		alphabet[(polymod>>10)&31], alphabet[(polymod>>5)&31], alphabet[(polymod^1)&31],
-	))
+	)), nil
 }

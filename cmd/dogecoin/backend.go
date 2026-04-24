@@ -110,7 +110,7 @@ func (b *backend) checkArguments() error {
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := helper.ReadMnemonic()
 	if err != nil {
-		return fmt.Errorf("failed to read mnemonic: %w", err)
+		return err
 	}
 
 	result, err := b.getResult(mnemonic)

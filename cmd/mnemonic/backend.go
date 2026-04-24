@@ -43,7 +43,7 @@ func NewCmd() *cobra.Command {
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	entropy, err := bip3x.CreateEntropyRandomly(b.size)
 	if err != nil {
-		return fmt.Errorf("failed to create entropy randomly: %w", err)
+		return fmt.Errorf("failed to generate random entropy: %w", err)
 	}
 
 	mnemonic, err := bip3x.EntropyToMnemonic(entropy)

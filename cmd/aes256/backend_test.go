@@ -133,7 +133,7 @@ func TestBackendDecryptErrors(t *testing.T) {
 			key:        []byte("b7b2fa8897cf785e2e5dbca7648617d4"),
 			hexPayload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
 			requireErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "decryption failed (wrong password or corrupted payload)")
+				require.ErrorContains(t, err, "failed to decrypt (wrong password or corrupted payload)")
 			},
 		},
 	}

@@ -23,7 +23,7 @@ type invalidPayloadLengthError struct {
 }
 
 func (e invalidPayloadLengthError) Error() string {
-	return fmt.Sprintf("invalid payload length (got %d, must be >= %d)", e.Got, e.Min)
+	return fmt.Sprintf("invalid payload length (got %d bytes, must be >= %d bytes)", e.Got, e.Min)
 }
 
 // encryptBackend holds dependencies for testing (injectable nonce source).
@@ -42,7 +42,7 @@ func NewCmdEncrypt() *cobra.Command {
 	backend := encryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "encrypt",
-		Short: "Encrypt stdin with AES-256-GCM and emit a hex payload",
+		Short: "Encrypt plaintext from stdin with AES-256-GCM and write a hex payload",
 		Example: "  printf 'hello' | dpass encrypt\n" +
 			"  cat secret.txt | dpass encrypt",
 		Args: cobra.NoArgs,
@@ -61,12 +61,12 @@ func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
 
 	password, err := helper.ReadPassword("Enter encryption password: ")
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return err
 	}
 
 	hexPayload, err := b.encrypt(helper.DeriveKey(password), plaintext)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt: %w", err)
+		return err
 	}
 
 	if _, err := os.Stdout.Write(hexPayload); err != nil {
@@ -116,7 +116,7 @@ func NewCmdDecrypt() *cobra.Command {
 	backend := decryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "decrypt",
-		Short: "Decrypt an AES-256-GCM hex payload from stdin",
+		Short: "Decrypt an AES-256-GCM hex payload from stdin and write plaintext",
 		Example: "  printf '0123abcd' | dpass decrypt\n" +
 			"  cat payload.hex | dpass decrypt",
 		Args: cobra.NoArgs,
@@ -137,7 +137,7 @@ func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 
 	password, err := helper.ReadPassword("Enter decryption password: ")
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return err
 	}
 
 	plaintext, err := b.decrypt(helper.DeriveKey(password), hexPayload)
@@ -178,7 +178,7 @@ func (b *decryptBackend) decrypt(key, hexPayload []byte) ([]byte, error) {
 
 	plaintext, err := aead.Open(nil, payload[:nonceSize], payload[nonceSize:], nil)
 	if err != nil {
-		return nil, fmt.Errorf("decryption failed (wrong password or corrupted payload): %w", err)
+		return nil, fmt.Errorf("failed to decrypt (wrong password or corrupted payload): %w", err)
 	}
 
 	return plaintext, nil

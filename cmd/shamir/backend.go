@@ -199,6 +199,12 @@ func combineMetadata(blocks []*pem.Block) (shareMetadata, error) {
 		return shareMetadata{}, err
 	}
 
+	if len(blocks) > metadata.parts {
+		return shareMetadata{}, tooManySharesError{Got: len(blocks), Max: metadata.parts}
+	}
+
+	indices := map[int]int{metadata.index: 0}
+
 	for i := 1; i < len(blocks); i++ {
 		current, err := decodeShareBlockMetadata(blocks[i], i)
 		if err != nil {
@@ -216,6 +222,14 @@ func combineMetadata(blocks []*pem.Block) (shareMetadata, error) {
 				Position: i, Key: "N", Got: current.parts, Want: metadata.parts,
 			}
 		}
+
+		if previous, exists := indices[current.index]; exists {
+			return shareMetadata{}, duplicateHeaderValueError{
+				Position: i, Previous: previous, Key: "I", Value: current.index,
+			}
+		}
+
+		indices[current.index] = i
 	}
 
 	return metadata, nil
@@ -227,6 +241,8 @@ type shareMetadata struct {
 	threshold int
 	// parts is the total number of shares originally generated.
 	parts int
+	// index is the zero-based share index encoded in header I.
+	index int
 }
 
 // decodeShareBlockMetadata validates a single PEM block and returns its metadata.
@@ -245,7 +261,7 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 	if threshold < shamir.MinThreshold || threshold > shamir.MaxParts {
 		return shareMetadata{}, invalidHeaderError{
 			Position: position, Key: "M", Value: threshold,
-			Detail: fmt.Sprintf("must be between %d and %d", shamir.MinThreshold, shamir.MaxParts),
+			Detail: fmt.Sprintf("must be within [%d, %d]", shamir.MinThreshold, shamir.MaxParts),
 		}
 	}
 
@@ -257,7 +273,7 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 	if parts < threshold || parts > shamir.MaxParts {
 		return shareMetadata{}, invalidHeaderError{
 			Position: position, Key: "N", Value: parts,
-			Detail: fmt.Sprintf("must satisfy M <= N <= %d", shamir.MaxParts),
+			Detail: fmt.Sprintf("must be within [%d, %d]", threshold, shamir.MaxParts),
 		}
 	}
 
@@ -269,7 +285,7 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 	if index < 0 || index >= parts {
 		return shareMetadata{}, invalidHeaderError{
 			Position: position, Key: "I", Value: index,
-			Detail: fmt.Sprintf("must be between 0 and %d", parts-1),
+			Detail: fmt.Sprintf("must be within [0, %d]", parts-1),
 		}
 	}
 
@@ -277,7 +293,7 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 		return shareMetadata{}, emptyShareBodyError{Position: position}
 	}
 
-	return shareMetadata{threshold: threshold, parts: parts}, nil
+	return shareMetadata{threshold: threshold, parts: parts, index: index}, nil
 }
 
 // decodePEMBlocks decodes concatenated PEM blocks and rejects trailing garbage.

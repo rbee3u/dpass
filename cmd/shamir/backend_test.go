@@ -272,6 +272,29 @@ func TestBackendCombineErrors(t *testing.T) {
 			},
 		},
 		{
+			name: "duplicate share index header",
+			run: func(t *testing.T) ([]byte, error) {
+				blocks := splitBlocks(t, 4, 2)
+				blocks[1].Headers["I"] = blocks[0].Headers["I"]
+				cb := combineBackendDefault()
+				return cb.combine(blocks[:2])
+			},
+			requireErr: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "duplicate I header")
+			},
+		},
+		{
+			name: "too many shares for header parts",
+			run: func(t *testing.T) ([]byte, error) {
+				blocks := splitBlocks(t, 3, 2)
+				cb := combineBackendDefault()
+				return cb.combine(append(blocks, blocks[0]))
+			},
+			requireErr: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "too many shares")
+			},
+		},
+		{
 			name: "trailing garbage",
 			run: func(t *testing.T) ([]byte, error) {
 				raw := pem.EncodeToMemory(splitBlocks(t, 4, 2)[0])

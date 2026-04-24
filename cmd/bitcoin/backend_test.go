@@ -200,6 +200,30 @@ func TestBackendErrors(t *testing.T) {
 				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
 			},
 		},
+		{
+			name: "decompress on purpose49",
+			setup: func(b *backend) {
+				b.purpose = purpose49
+				b.decompress = true
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target invalidDecompressPurposeError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, uint32(purpose49), target.Purpose)
+			},
+		},
+		{
+			name: "decompress on purpose84",
+			setup: func(b *backend) {
+				b.purpose = purpose84
+				b.decompress = true
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target invalidDecompressPurposeError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, uint32(purpose84), target.Purpose)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

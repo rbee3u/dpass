@@ -12,7 +12,7 @@ type invalidLevelError struct {
 }
 
 func (e invalidLevelError) Error() string {
-	return fmt.Sprintf("invalid level (got %q, want one of %s)", e.Got, strings.Join(e.Allowed, "/"))
+	return fmt.Sprintf("invalid level (got %q, must be one of %s)", e.Got, strings.Join(e.Allowed, " / "))
 }
 
 // invalidQuietError reports a --quiet flag outside the accepted quiet-zone range.

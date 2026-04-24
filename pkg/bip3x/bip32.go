@@ -26,11 +26,40 @@ func (e InvalidPathError) Error() string {
 	return fmt.Sprintf("bip32: invalid derivation path %v (every index must be hardened)", e.Path)
 }
 
+// InvalidSecp256k1MasterKeyError reports invalid secp256k1 master key material.
+type InvalidSecp256k1MasterKeyError struct{}
+
+func (e InvalidSecp256k1MasterKeyError) Error() string {
+	return "bip32: invalid secp256k1 master key material"
+}
+
+// InvalidSecp256k1IntermediateKeyError reports invalid secp256k1 child intermediate key material.
+type InvalidSecp256k1IntermediateKeyError struct {
+	Depth int
+	Index uint32
+}
+
+func (e InvalidSecp256k1IntermediateKeyError) Error() string {
+	return fmt.Sprintf("bip32: invalid secp256k1 child key material at depth %d index %d", e.Depth, e.Index)
+}
+
+// InvalidSecp256k1ChildKeyError reports a derived secp256k1 child key reduced to zero.
+type InvalidSecp256k1ChildKeyError struct {
+	Depth int
+	Index uint32
+}
+
+func (e InvalidSecp256k1ChildKeyError) Error() string {
+	return fmt.Sprintf("bip32: invalid secp256k1 child key at depth %d index %d", e.Depth, e.Index)
+}
+
 // Secp256k1DeriveSk derives a 32-byte secp256k1 secret key from BIP-39 seed bytes and a BIP-32 path.
 // Non-hardened steps use compressed pubkey data; hardened steps use the parent secret.
 func Secp256k1DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 	sk, cc := calculateHmacSha512([]byte("Bitcoin seed"), seed)
-	secp256k1AssertSk(sk)
+	if !isValidSecp256k1Secret(sk) {
+		return nil, InvalidSecp256k1MasterKeyError{}
+	}
 
 	for i := range path {
 		data := make([]byte, 37)
@@ -47,25 +76,35 @@ func Secp256k1DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 		binary.BigEndian.PutUint32(data[33:], path[i])
 
 		sum := new(big.Int).SetBytes(sk)
-		sk, cc = calculateHmacSha512(cc, data)
-		secp256k1AssertSk(sk)
-		sum.Add(sum, new(big.Int).SetBytes(sk))
+		childSk, childCC := calculateHmacSha512(cc, data)
+		if !isValidSecp256k1Secret(childSk) {
+			return nil, InvalidSecp256k1IntermediateKeyError{Depth: i, Index: path[i]}
+		}
+
+		sum.Add(sum, new(big.Int).SetBytes(childSk))
 		sum.Mod(sum, secp256k1.S256().N)
-		sum.FillBytes(sk)
+		if sum.Sign() == 0 {
+			return nil, InvalidSecp256k1ChildKeyError{Depth: i, Index: path[i]}
+		}
+
+		sum.FillBytes(childSk)
+		sk, cc = childSk, childCC
 	}
 
 	return sk, nil
 }
 
-// secp256k1AssertSk panics if sk is zero or not less than curve order N (invalid BIP-32 secret).
-func secp256k1AssertSk(sk []byte) {
+// isValidSecp256k1Secret reports whether sk is within secp256k1 private-key bounds.
+func isValidSecp256k1Secret(sk []byte) bool {
 	if zero := [32]byte{}; bytes.Equal(sk, zero[:]) {
-		panic("bip32: secp256k1: sk is too small")
+		return false
 	}
 
 	if bytes.Compare(sk, secp256k1.S256().N.Bytes()) >= 0 {
-		panic("bip32: secp256k1: sk is too large")
+		return false
 	}
+
+	return true
 }
 
 // Ed25519DeriveSk derives a 32-byte Ed25519 seed per SLIP-0010; every path index must be hardened.

@@ -63,6 +63,28 @@ func (e inconsistentHeaderError) Error() string {
 	return fmt.Sprintf("share %d: inconsistent %s header (got %d, want %d)", e.Position, e.Key, e.Got, e.Want)
 }
 
+// duplicateHeaderValueError reports two shares claiming the same header value.
+type duplicateHeaderValueError struct {
+	Position int
+	Previous int
+	Key      string
+	Value    int
+}
+
+func (e duplicateHeaderValueError) Error() string {
+	return fmt.Sprintf("share %d: duplicate %s header %d (already used by share %d)", e.Position, e.Key, e.Value, e.Previous)
+}
+
+// tooManySharesError reports more shares than the declared N header.
+type tooManySharesError struct {
+	Got int
+	Max int
+}
+
+func (e tooManySharesError) Error() string {
+	return fmt.Sprintf("too many shares (got %d, must be <= %d)", e.Got, e.Max)
+}
+
 // unexpectedBlockTypeError reports a PEM block type other than the expected share type.
 type unexpectedBlockTypeError struct {
 	Position int
@@ -90,5 +112,5 @@ type insufficientSharesError struct {
 }
 
 func (e insufficientSharesError) Error() string {
-	return fmt.Sprintf("insufficient shares (got %d, want at least %d)", e.Got, e.Need)
+	return fmt.Sprintf("insufficient shares (got %d, must be >= %d)", e.Got, e.Need)
 }

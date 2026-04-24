@@ -20,7 +20,7 @@ func (e invalidPurposeError) Error() string {
 		values[i] = strconv.FormatUint(uint64(v), 10)
 	}
 
-	return fmt.Sprintf("invalid purpose (got %d, want one of %s)", e.Got, strings.Join(values, "/"))
+	return fmt.Sprintf("invalid purpose (got %d, must be one of %s)", e.Got, strings.Join(values, " / "))
 }
 
 // invalidNetworkError reports a --network flag outside the accepted networks.
@@ -30,7 +30,7 @@ type invalidNetworkError struct {
 }
 
 func (e invalidNetworkError) Error() string {
-	return fmt.Sprintf("invalid network (got %q, want one of %s)", e.Got, strings.Join(e.Allowed, "/"))
+	return fmt.Sprintf("invalid network (got %q, must be one of %s)", e.Got, strings.Join(e.Allowed, " / "))
 }
 
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
@@ -39,7 +39,7 @@ type invalidAccountError struct {
 }
 
 func (e invalidAccountError) Error() string {
-	return fmt.Sprintf("invalid account (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
 // invalidChangeError reports a --change flag that would exceed the hardened boundary.
@@ -48,7 +48,7 @@ type invalidChangeError struct {
 }
 
 func (e invalidChangeError) Error() string {
-	return fmt.Sprintf("invalid change (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid change (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
 // invalidIndexError reports a --index flag that would exceed the hardened boundary.
@@ -57,5 +57,14 @@ type invalidIndexError struct {
 }
 
 func (e invalidIndexError) Error() string {
-	return fmt.Sprintf("invalid index (got %d, must be less than %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+}
+
+// invalidDecompressPurposeError reports --decompress used with SegWit purposes.
+type invalidDecompressPurposeError struct {
+	Purpose uint32
+}
+
+func (e invalidDecompressPurposeError) Error() string {
+	return fmt.Sprintf("invalid decompress mode (purpose %d requires compressed public keys)", e.Purpose)
 }
