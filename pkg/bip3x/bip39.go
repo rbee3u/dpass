@@ -120,7 +120,8 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 
 	for i := range entropy {
 		remain, shift = (remain<<BitsPerByte)|uint32(entropy[i]), shift+BitsPerByte
-		for reducedShift := shift - BitsPerWord; reducedShift >= 0; reducedShift = shift - BitsPerWord {
+		for shift >= BitsPerWord {
+			reducedShift := shift - BitsPerWord
 			sentence = append(sentence, value2word[remain>>reducedShift])
 			remain, shift = remain&((1<<reducedShift)-1), reducedShift
 		}
@@ -153,7 +154,8 @@ func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 		}
 
 		remain, shift = (remain<<BitsPerWord)|value, shift+BitsPerWord
-		for reducedShift := shift - BitsPerByte; reducedShift > 0; reducedShift = shift - BitsPerByte {
+		for shift > BitsPerByte {
+			reducedShift := shift - BitsPerByte
 			entropy = append(entropy, byte(remain>>reducedShift))
 			remain, shift = remain&((1<<reducedShift)-1), reducedShift
 		}

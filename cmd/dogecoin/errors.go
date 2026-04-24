@@ -6,24 +6,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/bip3x"
 )
 
-// invalidPurposeError reports a --purpose flag that would exceed the hardened boundary.
-type invalidPurposeError struct {
-	Got uint32
-}
-
-func (e invalidPurposeError) Error() string {
-	return fmt.Sprintf("invalid purpose (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
-}
-
-// invalidCoinError reports a --coin flag that would exceed the hardened boundary.
-type invalidCoinError struct {
-	Got uint32
-}
-
-func (e invalidCoinError) Error() string {
-	return fmt.Sprintf("invalid coin (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
-}
-
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
 type invalidAccountError struct {
 	Got uint32

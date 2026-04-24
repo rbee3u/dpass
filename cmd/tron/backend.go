@@ -17,7 +17,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Derivation defaults and output mode for the Tron command.
+// Derivation constants and output mode for the Tron command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -33,12 +33,8 @@ const (
 	secretDefault = false
 )
 
-// backend holds BIP44 path segments for Tron (secp256k1).
+// backend holds user-configurable BIP44 path segments for Tron (secp256k1).
 type backend struct {
-	// purpose is the hardened BIP44 purpose segment.
-	purpose uint32
-	// coin is the hardened SLIP-44 coin type for Tron.
-	coin uint32
 	// account is the hardened account segment in the derivation path.
 	account uint32
 	// change is the first unhardened trailing path component.
@@ -52,8 +48,6 @@ type backend struct {
 // backendDefault fixes Tron BIP44 coin type 195.
 func backendDefault() *backend {
 	return &backend{
-		purpose: purposeDefault,
-		coin:    coinDefault,
 		account: accountDefault,
 		change:  changeDefault,
 		index:   indexDefault,
@@ -84,14 +78,6 @@ func NewCmd() *cobra.Command {
 
 // checkArguments rejects path parts that would be invalid as unhardened CLI integers.
 func (b *backend) checkArguments() error {
-	if b.purpose >= bip3x.FirstHardenedChild {
-		return invalidPurposeError{Got: b.purpose}
-	}
-
-	if b.coin >= bip3x.FirstHardenedChild {
-		return invalidCoinError{Got: b.coin}
-	}
-
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
@@ -138,8 +124,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
-		b.purpose + bip3x.FirstHardenedChild,
-		b.coin + bip3x.FirstHardenedChild,
+		purposeDefault + bip3x.FirstHardenedChild,
+		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 		b.change,
 		b.index,

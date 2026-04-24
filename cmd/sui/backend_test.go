@@ -54,28 +54,6 @@ func TestBackendErrors(t *testing.T) {
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name: "invalid purpose",
-			setup: func(b *backend) {
-				b.purpose = bip3x.FirstHardenedChild
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target invalidPurposeError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
-			},
-		},
-		{
-			name: "invalid coin",
-			setup: func(b *backend) {
-				b.coin = bip3x.FirstHardenedChild
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target invalidCoinError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
-			},
-		},
-		{
 			name: "invalid account",
 			setup: func(b *backend) {
 				b.account = bip3x.FirstHardenedChild

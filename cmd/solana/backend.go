@@ -13,7 +13,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/helper"
 )
 
-// Derivation defaults, optional path sentinels, and output mode for the Solana command.
+// Derivation constants, optional path sentinels, and output mode for the Solana command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -33,12 +33,8 @@ const (
 	secretDefault = false
 )
 
-// backend holds derivation path segments; change/index -1 omits trailing hardened levels.
+// backend holds user-configurable derivation path segments; change/index -1 omits trailing hardened levels.
 type backend struct {
-	// purpose is the hardened BIP44 purpose segment.
-	purpose uint32
-	// coin is the hardened SLIP-44 coin type for Solana.
-	coin uint32
 	// account is the hardened account segment in the derivation path.
 	account uint32
 	// change uses -1 to omit itself and the index suffix from the path.
@@ -52,8 +48,6 @@ type backend struct {
 // backendDefault fixes Solana BIP44 coin type 501 without optional path suffixes.
 func backendDefault() *backend {
 	return &backend{
-		purpose: purposeDefault,
-		coin:    coinDefault,
 		account: accountDefault,
 		change:  changeDefault,
 		index:   indexDefault,
@@ -86,14 +80,6 @@ func NewCmd() *cobra.Command {
 
 // checkArguments validates hardened constraints and the change/index ignore pairing rules.
 func (b *backend) checkArguments() error {
-	if b.purpose >= bip3x.FirstHardenedChild {
-		return invalidPurposeError{Got: b.purpose}
-	}
-
-	if b.coin >= bip3x.FirstHardenedChild {
-		return invalidCoinError{Got: b.coin}
-	}
-
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
@@ -144,8 +130,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 
 	path := []uint32{
-		b.purpose + bip3x.FirstHardenedChild,
-		b.coin + bip3x.FirstHardenedChild,
+		purposeDefault + bip3x.FirstHardenedChild,
+		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 	}
 	if b.change != changeIgnore {

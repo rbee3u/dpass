@@ -56,24 +56,12 @@ const (
 	decompressDefault = false
 )
 
-// backend holds CLI flags and per-network version bytes for address and WIF encoding.
+// backend holds CLI flags that affect derivation and output encoding.
 type backend struct {
 	// purpose selects BIP44 (44), nested SegWit (49), or native SegWit (84).
 	purpose uint32
-	// convert turns a pubkey hash into a human-readable address for the chosen purpose.
-	convert func([]byte) (string, error)
 	// network selects chain parameters (mainnet, testnets, etc.).
 	network string
-	// magicPrivateKey prefixes WIF secret keys for this network.
-	magicPrivateKey byte
-	// magicPubKeyHash prefixes P2PKH (legacy) addresses.
-	magicPubKeyHash byte
-	// magicScriptHash prefixes P2SH-wrapped SegWit addresses.
-	magicScriptHash byte
-	// magicBech32HRP is the Bech32 human-readable part for native SegWit.
-	magicBech32HRP string
-	// coin is the BIP44 coin type (0 main, 1 test) combined with purpose in the path.
-	coin uint32
 	// account is the hardened account segment in the derivation path.
 	account uint32
 	// change is the first unhardened trailing path component.
@@ -128,13 +116,21 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
-// checkArguments validates flags and populates address-encoding callbacks and network magics.
+type networkConfig struct {
+	coin            uint32
+	magicPrivateKey byte
+	magicPubKeyHash byte
+	magicScriptHash byte
+	magicBech32HRP  string
+}
+
+// checkArguments validates CLI flags without mutating backend state.
 func (b *backend) checkArguments() error {
-	if err := b.checkPurpose(); err != nil {
+	if _, err := b.resolvePurpose(); err != nil {
 		return err
 	}
 
-	if err := b.checkNetwork(); err != nil {
+	if _, err := b.resolveNetwork(); err != nil {
 		return err
 	}
 
@@ -157,60 +153,64 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// checkPurpose wires b.convert for the selected BIP purpose.
-func (b *backend) checkPurpose() error {
+// resolvePurpose validates the selected purpose and returns the matching address encoder.
+func (b *backend) resolvePurpose() (func([]byte, networkConfig) (string, error), error) {
 	switch b.purpose {
 	case purpose44:
-		b.convert = b.pkHashToAddress44
+		return pkHashToAddress44, nil
 	case purpose49:
-		b.convert = b.pkHashToAddress49
+		return pkHashToAddress49, nil
 	case purpose84:
-		b.convert = b.pkHashToAddress84
+		return pkHashToAddress84, nil
 	default:
-		return invalidPurposeError{
+		return nil, invalidPurposeError{
 			Got:     b.purpose,
 			Allowed: []uint32{purpose44, purpose49, purpose84},
 		}
 	}
-
-	return nil
 }
 
-// checkNetwork sets version bytes and coin type from the selected network name.
-func (b *backend) checkNetwork() error {
+// resolveNetwork validates the selected network and returns its encoding parameters.
+func (b *backend) resolveNetwork() (networkConfig, error) {
 	switch b.network {
 	case networkMainNet:
-		b.magicPrivateKey = 0x80
-		b.magicPubKeyHash = 0x00
-		b.magicScriptHash = 0x05
-		b.magicBech32HRP = "bc"
-		b.coin = coinMain
+		return networkConfig{
+			coin:            coinMain,
+			magicPrivateKey: 0x80,
+			magicPubKeyHash: 0x00,
+			magicScriptHash: 0x05,
+			magicBech32HRP:  "bc",
+		}, nil
 	case networkRegressionNet:
-		b.magicPrivateKey = 0xef
-		b.magicPubKeyHash = 0x6f
-		b.magicScriptHash = 0xc4
-		b.magicBech32HRP = "bcrt"
-		b.coin = coinTest
+		return networkConfig{
+			coin:            coinTest,
+			magicPrivateKey: 0xef,
+			magicPubKeyHash: 0x6f,
+			magicScriptHash: 0xc4,
+			magicBech32HRP:  "bcrt",
+		}, nil
 	case networkTestNet3:
-		b.magicPrivateKey = 0xef
-		b.magicPubKeyHash = 0x6f
-		b.magicScriptHash = 0xc4
-		b.magicBech32HRP = "tb"
-		b.coin = coinTest
+		return networkConfig{
+			coin:            coinTest,
+			magicPrivateKey: 0xef,
+			magicPubKeyHash: 0x6f,
+			magicScriptHash: 0xc4,
+			magicBech32HRP:  "tb",
+		}, nil
 	case networkSimNet:
-		b.magicPrivateKey = 0x64
-		b.magicPubKeyHash = 0x3f
-		b.magicScriptHash = 0x7b
-		b.magicBech32HRP = "sb"
-		b.coin = coinTest
+		return networkConfig{
+			coin:            coinTest,
+			magicPrivateKey: 0x64,
+			magicPubKeyHash: 0x3f,
+			magicScriptHash: 0x7b,
+			magicBech32HRP:  "sb",
+		}, nil
 	default:
-		return invalidNetworkError{
+		return networkConfig{}, invalidNetworkError{
 			Got:     b.network,
 			Allowed: []string{networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet},
 		}
 	}
-
-	return nil
 }
 
 // runE reads a mnemonic from stdin and prints the derived address or WIF.
@@ -238,6 +238,16 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", err
 	}
 
+	convert, err := b.resolvePurpose()
+	if err != nil {
+		return "", err
+	}
+
+	network, err := b.resolveNetwork()
+	if err != nil {
+		return "", err
+	}
+
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
@@ -245,7 +255,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
 		b.purpose + bip3x.FirstHardenedChild,
-		b.coin + bip3x.FirstHardenedChild,
+		network.coin + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 		b.change,
 		b.index,
@@ -255,15 +265,17 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 
 	if b.secret {
-		return b.skToWIF(sk), nil
+		return b.skToWIF(sk, network), nil
 	}
 
-	return b.pkToAddress(secp256k1.S256().ScalarBaseMult(sk))
+	x, y := secp256k1.S256().ScalarBaseMult(sk)
+
+	return b.pkToAddress(x, y, network, convert)
 }
 
 // skToWIF encodes the secret with network prefix, optional compressed suffix, and Base58Check.
-func (b *backend) skToWIF(sk []byte) string {
-	data := slices.Concat([]byte{b.magicPrivateKey}, sk)
+func (b *backend) skToWIF(sk []byte, network networkConfig) string {
+	data := slices.Concat([]byte{network.magicPrivateKey}, sk)
 	if !b.decompress {
 		data = append(data, 1)
 	}
@@ -273,8 +285,12 @@ func (b *backend) skToWIF(sk []byte) string {
 	return base58.Encode(slices.Concat(data, digest))
 }
 
-// pkToAddress hashes the compressed or uncompressed pubkey and passes the hash to b.convert.
-func (b *backend) pkToAddress(x, y *big.Int) (string, error) {
+// pkToAddress hashes the compressed or uncompressed pubkey and encodes the result per purpose.
+func (b *backend) pkToAddress(
+	x, y *big.Int,
+	network networkConfig,
+	convert func([]byte, networkConfig) (string, error),
+) (string, error) {
 	var data []byte
 	if !b.decompress {
 		data = make([]byte, 33)
@@ -290,21 +306,21 @@ func (b *backend) pkToAddress(x, y *big.Int) (string, error) {
 
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
 
-	return b.convert(pkHash)
+	return convert(pkHash, network)
 }
 
 // pkHashToAddress44 builds a P2PKH Base58Check address (BIP44 legacy).
-func (b *backend) pkHashToAddress44(pkHash []byte) (string, error) {
-	data := slices.Concat([]byte{b.magicPubKeyHash}, pkHash)
+func pkHashToAddress44(pkHash []byte, network networkConfig) (string, error) {
+	data := slices.Concat([]byte{network.magicPubKeyHash}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
 // pkHashToAddress49 wraps the pubkey hash in P2WPKH-in-P2SH and Base58Check-encodes it.
-func (b *backend) pkHashToAddress49(pkHash []byte) (string, error) {
+func pkHashToAddress49(pkHash []byte, network networkConfig) (string, error) {
 	pkScript := slices.Concat([]byte{0, 20}, pkHash)
-	data := slices.Concat([]byte{b.magicScriptHash},
+	data := slices.Concat([]byte{network.magicScriptHash},
 		hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 
@@ -312,8 +328,8 @@ func (b *backend) pkHashToAddress49(pkHash []byte) (string, error) {
 }
 
 // pkHashToAddress84 Bech32-encodes witness version 0 with the pubkey hash (BIP84).
-func (b *backend) pkHashToAddress84(pkHash []byte) (string, error) {
-	address, err := bech32.EncodeChecked(b.magicBech32HRP, []byte{0}, pkHash)
+func pkHashToAddress84(pkHash []byte, network networkConfig) (string, error) {
+	address, err := bech32.EncodeChecked(network.magicBech32HRP, []byte{0}, pkHash)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode bech32 address: %w", err)
 	}

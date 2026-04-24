@@ -16,7 +16,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/helper"
 )
 
-// Derivation defaults, optional path sentinels, and output mode for the Sui command.
+// Derivation constants, optional path sentinels, and output mode for the Sui command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -36,12 +36,8 @@ const (
 	secretDefault = false
 )
 
-// backend mirrors Solana-style optional trailing path levels (see changeIgnore/indexIgnore).
+// backend mirrors Solana-style user-configurable trailing path levels.
 type backend struct {
-	// purpose is the hardened BIP44 purpose segment.
-	purpose uint32
-	// coin is the hardened SLIP-44 coin type for Sui.
-	coin uint32
 	// account is the hardened account segment in the derivation path.
 	account uint32
 	// change uses -1 to omit itself and the index suffix from the path.
@@ -55,8 +51,6 @@ type backend struct {
 // backendDefault targets Sui coin type 784 with default account/change/index.
 func backendDefault() *backend {
 	return &backend{
-		purpose: purposeDefault,
-		coin:    coinDefault,
 		account: accountDefault,
 		change:  changeDefault,
 		index:   indexDefault,
@@ -89,14 +83,6 @@ func NewCmd() *cobra.Command {
 
 // checkArguments mirrors Solana rules: -1 change drops suffixes; index must stay consistent.
 func (b *backend) checkArguments() error {
-	if b.purpose >= bip3x.FirstHardenedChild {
-		return invalidPurposeError{Got: b.purpose}
-	}
-
-	if b.coin >= bip3x.FirstHardenedChild {
-		return invalidCoinError{Got: b.coin}
-	}
-
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
@@ -147,8 +133,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 
 	path := []uint32{
-		b.purpose + bip3x.FirstHardenedChild,
-		b.coin + bip3x.FirstHardenedChild,
+		purposeDefault + bip3x.FirstHardenedChild,
+		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 	}
 	if b.change != changeIgnore {
@@ -166,7 +152,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 
 	privateKey := ed25519.NewKeyFromSeed(sk)
 	if b.secret {
-		secret, err := skToWIF(privateKey[:ed25519.SeedSize])
+		secret, err := encodeSecretKey(privateKey[:ed25519.SeedSize])
 		if err != nil {
 			return "", err
 		}
@@ -177,9 +163,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(privateKey[ed25519.SeedSize:]), nil
 }
 
-// skToWIF Bech32-encodes the 32-byte seed with scheme tag suiprivkey (flag byte 0).
-
-func skToWIF(sk []byte) (string, error) {
+// encodeSecretKey Bech32-encodes the 32-byte seed with scheme tag suiprivkey (flag byte 0).
+func encodeSecretKey(sk []byte) (string, error) {
 	key, err := bech32.EncodeChecked("suiprivkey", nil, slices.Concat([]byte{0}, sk))
 	if err != nil {
 		return "", fmt.Errorf("failed to encode suiprivkey: %w", err)
