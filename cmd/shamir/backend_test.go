@@ -2,7 +2,11 @@ package shamir
 
 import (
 	"encoding/pem"
+	"fmt"
+	"io"
 	"iter"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,48 +14,78 @@ import (
 	"github.com/rbee3u/dpass/pkg/shamir"
 )
 
-func TestBackend(t *testing.T) {
-	secret := []byte("To be, or not to be, that is the question.")
-	tests := []struct {
-		name   string
-		blocks func(t *testing.T) []*pem.Block
-	}{
-		{
-			name: "split output",
-			blocks: func(t *testing.T) []*pem.Block {
-				return splitBlocks(t, 9, 4)
-			},
-		},
-		{
-			name:   "fixture shares",
-			blocks: combineFixtures,
-		},
-	}
+const fixtureSecret = "To be, or not to be, that is the question."
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			blocks := tt.blocks(t)
-			for group := range combinations(blocks, 4) {
-				cb := combineBackendDefault()
-				combinedSecret, err := cb.combine(group)
-				require.NoError(t, err)
-				require.Equal(t, secret, combinedSecret)
-			}
+func TestSplitBackend(t *testing.T) {
+	secret := []byte(fixtureSecret)
+
+	t.Run("shares recombine to secret", func(t *testing.T) {
+		requireAllCombinationsRecoverSecret(t, splitBlocks(t, 9, 4), 4, secret)
+	})
+
+	t.Run("runE writes pem to stdout", func(t *testing.T) {
+		setStdinBytes(t, secret)
+		data := captureStdoutBytes(t, func() {
+			sb := splitBackendDefault()
+			sb.parts = 4
+			sb.threshold = 3
+			require.NoError(t, sb.runE(nil, nil))
 		})
-	}
+
+		blocks, err := decodePEMBlocks(data)
+		require.NoError(t, err)
+		requireRecoveredSecret(t, blocks[:3], secret)
+	})
+
+	t.Run("runE writes pem to files", func(t *testing.T) {
+		setStdinBytes(t, secret)
+		prefix := filepath.Join(t.TempDir(), "share")
+
+		sb := splitBackendDefault()
+		sb.output = prefix
+		sb.parts = 4
+		sb.threshold = 3
+		require.NoError(t, sb.runE(nil, nil))
+
+		requireRecoveredSecret(t, readShareBlocks(t, prefix, 4, 3)[:3], secret)
+	})
 }
 
-func TestBackendSplitErrors(t *testing.T) {
+func TestCombineBackend(t *testing.T) {
+	secret := []byte(fixtureSecret)
+
+	t.Run("fixture shares recombine to secret", func(t *testing.T) {
+		requireAllCombinationsRecoverSecret(t, combineFixtures(t), 4, secret)
+	})
+
+	t.Run("runE recovers secret from stdin", func(t *testing.T) {
+		setStdinBytes(t, encodePEMBlocks(splitBlocks(t, 4, 3)[:3]))
+		output := captureStdoutBytes(t, func() {
+			cb := combineBackendDefault()
+			require.NoError(t, cb.runE(nil, nil))
+		})
+
+		require.Equal(t, secret, output)
+	})
+}
+
+func TestSplitBackendErrors(t *testing.T) {
+	secret := []byte(fixtureSecret)
 	tests := []struct {
 		name       string
-		parts      int
-		threshold  int
+		run        func(*testing.T) error
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name:      "parts less than threshold",
-			parts:     2,
-			threshold: 3,
+			name: "parts less than threshold",
+			run: func(t *testing.T) error {
+				sb := splitBackendDefault()
+				sb.parts = 2
+				sb.threshold = 3
+				blocks, err := sb.split(secret)
+				require.Nil(t, blocks)
+				return err
+			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
 				var target shamir.PartsBelowThresholdError
@@ -61,9 +95,15 @@ func TestBackendSplitErrors(t *testing.T) {
 			},
 		},
 		{
-			name:      "parts greater than limit",
-			parts:     256,
-			threshold: 3,
+			name: "parts greater than limit",
+			run: func(t *testing.T) error {
+				sb := splitBackendDefault()
+				sb.parts = 256
+				sb.threshold = 3
+				blocks, err := sb.split(secret)
+				require.Nil(t, blocks)
+				return err
+			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
 				var target shamir.PartsOverLimitError
@@ -73,9 +113,15 @@ func TestBackendSplitErrors(t *testing.T) {
 			},
 		},
 		{
-			name:      "threshold too small",
-			parts:     3,
-			threshold: 1,
+			name: "threshold too small",
+			run: func(t *testing.T) error {
+				sb := splitBackendDefault()
+				sb.parts = 3
+				sb.threshold = 1
+				blocks, err := sb.split(secret)
+				require.Nil(t, blocks)
+				return err
+			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
 				var target shamir.ThresholdTooSmallError
@@ -88,28 +134,26 @@ func TestBackendSplitErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sb := splitBackendDefault()
-			sb.parts = tt.parts
-			sb.threshold = tt.threshold
-			blocks, err := sb.split([]byte("To be, or not to be, that is the question."))
+			err := tt.run(t)
 			require.Error(t, err)
 			tt.requireErr(t, err)
-			require.Nil(t, blocks)
 		})
 	}
 }
 
-func TestBackendCombineErrors(t *testing.T) {
+func TestCombineBackendErrors(t *testing.T) {
 	tests := []struct {
 		name       string
-		run        func(t *testing.T) ([]byte, error)
+		run        func(*testing.T) error
 		requireErr func(*testing.T, error)
 	}{
 		{
 			name: "insufficient shares",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				cb := combineBackendDefault()
-				return cb.combine(splitBlocks(t, 9, 4)[:3])
+				combinedSecret, err := cb.combine(splitBlocks(t, 9, 4)[:3])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "insufficient shares")
@@ -117,11 +161,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "missing threshold header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 3, 2)
 				delete(blocks[0].Headers, "M")
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "missing M header")
@@ -129,11 +175,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "inconsistent threshold header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[1].Headers["M"] = "3"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "inconsistent M header")
@@ -141,11 +189,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "threshold header too small",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["M"] = "0"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid M header 0")
@@ -153,11 +203,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "threshold header negative",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["M"] = "-1"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid M header -1")
@@ -165,11 +217,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "threshold header too large",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["M"] = "256"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid M header 256")
@@ -177,11 +231,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "missing parts header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				delete(blocks[0].Headers, "N")
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "missing N header")
@@ -189,11 +245,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "invalid parts header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["N"] = "abc"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid N header")
@@ -201,11 +259,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "inconsistent parts header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[1].Headers["N"] = "3"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "inconsistent N header")
@@ -213,11 +273,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "parts header below threshold",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["N"] = "1"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid N header 1")
@@ -225,11 +287,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "missing share index header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				delete(blocks[0].Headers, "I")
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "missing I header")
@@ -237,11 +301,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "invalid share index header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["I"] = "abc"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid I header")
@@ -249,11 +315,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "share index header out of range",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Headers["I"] = "4"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid I header 4")
@@ -261,11 +329,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "unexpected pem block type",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[0].Type = "CERTIFICATE"
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "unexpected block type")
@@ -273,11 +343,13 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "duplicate share index header",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 4, 2)
 				blocks[1].Headers["I"] = blocks[0].Headers["I"]
 				cb := combineBackendDefault()
-				return cb.combine(blocks[:2])
+				combinedSecret, err := cb.combine(blocks[:2])
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "duplicate I header")
@@ -285,10 +357,12 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "too many shares for header parts",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				blocks := splitBlocks(t, 3, 2)
 				cb := combineBackendDefault()
-				return cb.combine(append(blocks, blocks[0]))
+				combinedSecret, err := cb.combine(append(blocks, blocks[0]))
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "too many shares")
@@ -296,17 +370,19 @@ func TestBackendCombineErrors(t *testing.T) {
 		},
 		{
 			name: "trailing garbage",
-			run: func(t *testing.T) ([]byte, error) {
+			run: func(t *testing.T) error {
 				raw := pem.EncodeToMemory(splitBlocks(t, 4, 2)[0])
 				raw = append(raw, []byte("garbage")...)
 
 				blocks, err := decodePEMBlocks(raw)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				cb := combineBackendDefault()
-				return cb.combine(blocks)
+				combinedSecret, err := cb.combine(blocks)
+				require.Nil(t, combinedSecret)
+				return err
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorIs(t, err, errMalformedPEMInput)
@@ -316,10 +392,9 @@ func TestBackendCombineErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			secret, err := tt.run(t)
+			err := tt.run(t)
 			require.Error(t, err)
 			tt.requireErr(t, err)
-			require.Nil(t, secret)
 		})
 	}
 }
@@ -329,9 +404,91 @@ func splitBlocks(t *testing.T, parts, threshold int) []*pem.Block {
 	sb := splitBackendDefault()
 	sb.parts = parts
 	sb.threshold = threshold
-	blocks, err := sb.split([]byte("To be, or not to be, that is the question."))
+	blocks, err := sb.split([]byte(fixtureSecret))
 	require.NoError(t, err)
 	return blocks
+}
+
+func setStdinBytes(t *testing.T, data []byte) {
+	t.Helper()
+	stdinReader, stdinWriter, err := os.Pipe()
+	require.NoError(t, err)
+
+	oldStdin := os.Stdin
+	os.Stdin = stdinReader
+	t.Cleanup(func() {
+		os.Stdin = oldStdin
+	})
+
+	_, err = stdinWriter.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, stdinWriter.Close())
+}
+
+func captureStdoutBytes(t *testing.T, run func()) []byte {
+	t.Helper()
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	require.NoError(t, err)
+
+	oldStdout := os.Stdout
+	os.Stdout = stdoutWriter
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+	})
+
+	run()
+
+	require.NoError(t, stdoutWriter.Close())
+	data, err := io.ReadAll(stdoutReader)
+	require.NoError(t, err)
+	require.NoError(t, stdoutReader.Close())
+
+	return data
+}
+
+func requireAllCombinationsRecoverSecret(t *testing.T, blocks []*pem.Block, threshold int, want []byte) {
+	t.Helper()
+	for group := range combinations(blocks, threshold) {
+		requireRecoveredSecret(t, group, want)
+	}
+}
+
+func requireRecoveredSecret(t *testing.T, blocks []*pem.Block, want []byte) {
+	t.Helper()
+	cb := combineBackendDefault()
+	combinedSecret, err := cb.combine(blocks)
+	require.NoError(t, err)
+	require.Equal(t, want, combinedSecret)
+}
+
+func readShareBlocks(t *testing.T, prefix string, parts, threshold int) []*pem.Block {
+	t.Helper()
+	blocks := make([]*pem.Block, 0, parts)
+	for i := range parts {
+		path := fmt.Sprintf("%s-%d-%d-%d.txt", prefix, parts, threshold, i)
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(fileMode), info.Mode().Perm())
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		block, rest := pem.Decode(data)
+		require.NotNil(t, block)
+		require.Empty(t, rest)
+		blocks = append(blocks, block)
+	}
+
+	return blocks
+}
+
+func encodePEMBlocks(blocks []*pem.Block) []byte {
+	var encoded []byte
+	for _, block := range blocks {
+		encoded = append(encoded, pem.EncodeToMemory(block)...)
+	}
+
+	return encoded
 }
 
 func combineFixtures(t *testing.T) []*pem.Block {

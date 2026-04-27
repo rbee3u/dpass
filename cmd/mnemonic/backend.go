@@ -41,19 +41,29 @@ func NewCmd() *cobra.Command {
 
 // runE emits a random BIP-39 mnemonic for the configured entropy size.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
-	entropy, err := bip3x.CreateEntropyRandomly(b.size)
+	result, err := b.getResult()
 	if err != nil {
-		return fmt.Errorf("failed to generate random entropy: %w", err)
+		return err
 	}
 
-	mnemonic, err := bip3x.EntropyToMnemonic(entropy)
-	if err != nil {
-		return fmt.Errorf("failed to convert entropy to mnemonic: %w", err)
-	}
-
-	if _, err := os.Stdout.WriteString(mnemonic); err != nil {
+	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write mnemonic: %w", err)
 	}
 
 	return nil
+}
+
+// getResult generates a BIP-39 mnemonic for the configured entropy size.
+func (b *backend) getResult() (string, error) {
+	entropy, err := bip3x.CreateEntropyRandomly(b.size)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random entropy: %w", err)
+	}
+
+	mnemonic, err := bip3x.EntropyToMnemonic(entropy)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert entropy to mnemonic: %w", err)
+	}
+
+	return mnemonic, nil
 }

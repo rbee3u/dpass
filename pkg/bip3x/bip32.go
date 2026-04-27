@@ -11,6 +11,8 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
+var hmacSha512 = calculateHmacSha512
+
 // BIP-32 shared constants.
 const (
 	// FirstHardenedChild is the BIP-32 hardened index offset (2^31).
@@ -61,7 +63,7 @@ func (e InvalidSecp256k1ChildKeyError) Error() string {
 // Secp256k1DeriveSk derives a 32-byte secp256k1 secret key from BIP-39 seed bytes and a BIP-32 path.
 // Non-hardened steps use compressed pubkey data; hardened steps use the parent secret.
 func Secp256k1DeriveSk(seed []byte, path []uint32) ([]byte, error) {
-	sk, cc := calculateHmacSha512([]byte("Bitcoin seed"), seed)
+	sk, cc := hmacSha512([]byte("Bitcoin seed"), seed)
 	if !isValidSecp256k1Secret(sk) {
 		return nil, InvalidSecp256k1MasterKeyError{}
 	}
@@ -81,7 +83,7 @@ func Secp256k1DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 		binary.BigEndian.PutUint32(data[33:], path[i])
 
 		sum := new(big.Int).SetBytes(sk)
-		childSk, childCC := calculateHmacSha512(cc, data)
+		childSk, childCC := hmacSha512(cc, data)
 		if !isValidSecp256k1Secret(childSk) {
 			return nil, InvalidSecp256k1IntermediateKeyError{Depth: i, Index: path[i]}
 		}
@@ -114,7 +116,7 @@ func isValidSecp256k1Secret(sk []byte) bool {
 
 // Ed25519DeriveSk derives a 32-byte Ed25519 seed per SLIP-0010; every path index must be hardened.
 func Ed25519DeriveSk(seed []byte, path []uint32) ([]byte, error) {
-	sk, cc := calculateHmacSha512([]byte("ed25519 seed"), seed)
+	sk, cc := hmacSha512([]byte("ed25519 seed"), seed)
 
 	for i := range path {
 		if path[i] < FirstHardenedChild {
@@ -124,7 +126,7 @@ func Ed25519DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 		data := make([]byte, 37)
 		copy(data[1:33], sk)
 		binary.BigEndian.PutUint32(data[33:], path[i])
-		sk, cc = calculateHmacSha512(cc, data)
+		sk, cc = hmacSha512(cc, data)
 	}
 
 	return sk, nil

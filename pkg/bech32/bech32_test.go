@@ -60,6 +60,7 @@ func TestEncode(t *testing.T) {
 			out:  "tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			vs, err := hex.DecodeString(tt.vs0x)

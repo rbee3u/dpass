@@ -5,6 +5,7 @@ import (
 	"crypto/sha512"
 	_ "embed"
 	"fmt"
+	"io"
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -106,7 +107,9 @@ func CreateEntropyRandomly(entropySize int) ([]byte, error) {
 	}
 
 	entropy := make([]byte, entropySize/BitsPerByte)
-	_, _ = rand.Read(entropy)
+	if _, err := io.ReadFull(rand.Reader, entropy); err != nil {
+		return nil, err
+	}
 
 	return entropy, nil
 }

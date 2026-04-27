@@ -19,7 +19,7 @@ func TestBackend(t *testing.T) {
 		{
 			name:      "empty plaintext",
 			key:       []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
-			plaintext: nil, // or []byte("")
+			plaintext: nil,
 		},
 		{
 			name:      "short plaintext",
@@ -32,6 +32,7 @@ func TestBackend(t *testing.T) {
 			plaintext: []byte("_LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLong"),
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			eb := encryptBackendDefault()
@@ -45,17 +46,19 @@ func TestBackend(t *testing.T) {
 	}
 }
 
-func TestBackendEncryptErrors(t *testing.T) {
+func TestEncryptBackendErrors(t *testing.T) {
 	tests := []struct {
 		name       string
-		nonce      []byte
+		setup      func(*encryptBackend)
 		key        []byte
 		plaintext  []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name:      "short nonce reader",
-			nonce:     []byte("bad-nonce"),
+			name: "short nonce reader",
+			setup: func(eb *encryptBackend) {
+				eb.nonceReader = bytes.NewReader([]byte("bad-nonce"))
+			},
 			key:       []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
 			plaintext: []byte(""),
 			requireErr: func(t *testing.T, err error) {
@@ -64,8 +67,10 @@ func TestBackendEncryptErrors(t *testing.T) {
 			},
 		},
 		{
-			name:      "invalid key length",
-			nonce:     []byte("ccc66c168049"),
+			name: "invalid encrypt key length",
+			setup: func(eb *encryptBackend) {
+				eb.nonceReader = bytes.NewReader([]byte("ccc66c168049"))
+			},
 			key:       []byte("bad-key"),
 			plaintext: []byte(""),
 			requireErr: func(t *testing.T, err error) {
@@ -76,10 +81,11 @@ func TestBackendEncryptErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			eb := encryptBackendDefault()
-			eb.nonceReader = bytes.NewReader(tt.nonce)
+			tt.setup(eb)
 			hexPayload, err := eb.encrypt(tt.key, tt.plaintext)
 			require.Error(t, err)
 			tt.requireErr(t, err)
@@ -88,17 +94,17 @@ func TestBackendEncryptErrors(t *testing.T) {
 	}
 }
 
-func TestBackendDecryptErrors(t *testing.T) {
+func TestDecryptBackendErrors(t *testing.T) {
 	tests := []struct {
 		name       string
 		key        []byte
-		hexPayload []byte
+		payload    []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name:       "invalid key length",
-			key:        []byte("bad-key"),
-			hexPayload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
+			name:    "invalid decrypt key length",
+			key:     []byte("bad-key"),
+			payload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to create AES cipher")
 				var target aes.KeySizeError
@@ -107,9 +113,9 @@ func TestBackendDecryptErrors(t *testing.T) {
 			},
 		},
 		{
-			name:       "invalid hex payload",
-			key:        []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
-			hexPayload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca40zz"),
+			name:    "invalid hex payload",
+			key:     []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
+			payload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca40zz"),
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to decode payload")
 				var target hex.InvalidByteError
@@ -118,9 +124,9 @@ func TestBackendDecryptErrors(t *testing.T) {
 			},
 		},
 		{
-			name:       "short payload",
-			key:        []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
-			hexPayload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca40"),
+			name:    "short payload",
+			key:     []byte("a7b2fa8897cf785e2e5dbca7648617d4"),
+			payload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca40"),
 			requireErr: func(t *testing.T, err error) {
 				var target invalidPayloadLengthError
 				require.ErrorAs(t, err, &target)
@@ -129,18 +135,19 @@ func TestBackendDecryptErrors(t *testing.T) {
 			},
 		},
 		{
-			name:       "wrong key",
-			key:        []byte("b7b2fa8897cf785e2e5dbca7648617d4"),
-			hexPayload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
+			name:    "wrong key",
+			key:     []byte("b7b2fa8897cf785e2e5dbca7648617d4"),
+			payload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to decrypt (wrong password or corrupted payload)")
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := decryptBackendDefault()
-			plaintext, err := db.decrypt(tt.key, tt.hexPayload)
+			plaintext, err := db.decrypt(tt.key, tt.payload)
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Nil(t, plaintext)

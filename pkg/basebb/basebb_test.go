@@ -59,6 +59,7 @@ func TestTransform(t *testing.T) {
 			out:   []byte{15, 15},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := basebb.Transform(tt.iBase, tt.oBase, tt.in)
@@ -77,17 +78,19 @@ func TestTransformRoundTrip(t *testing.T) {
 	require.Equal(t, in, got)
 }
 
-func TestNewTransformerErrors(t *testing.T) {
+func TestTransformErrors(t *testing.T) {
 	tests := []struct {
 		name       string
 		iBase      uint32
 		oBase      uint32
+		in         []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
 			name:  "iBase too small",
 			iBase: 1,
 			oBase: 10,
+			in:    []byte{0},
 			requireErr: func(t *testing.T, err error) {
 				var target basebb.InvalidBaseError
 				require.ErrorAs(t, err, &target)
@@ -98,6 +101,7 @@ func TestNewTransformerErrors(t *testing.T) {
 			name:  "iBase too large",
 			iBase: 257,
 			oBase: 10,
+			in:    []byte{0},
 			requireErr: func(t *testing.T, err error) {
 				var target basebb.InvalidBaseError
 				require.ErrorAs(t, err, &target)
@@ -108,6 +112,7 @@ func TestNewTransformerErrors(t *testing.T) {
 			name:  "oBase too small",
 			iBase: 10,
 			oBase: 0,
+			in:    []byte{0},
 			requireErr: func(t *testing.T, err error) {
 				var target basebb.InvalidBaseError
 				require.ErrorAs(t, err, &target)
@@ -118,31 +123,13 @@ func TestNewTransformerErrors(t *testing.T) {
 			name:  "oBase too large",
 			iBase: 10,
 			oBase: 300,
+			in:    []byte{0},
 			requireErr: func(t *testing.T, err error) {
 				var target basebb.InvalidBaseError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, uint32(300), target.Base)
 			},
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			out, err := basebb.Transform(tt.iBase, tt.oBase, []byte{0})
-			require.Error(t, err)
-			tt.requireErr(t, err)
-			require.Nil(t, out)
-		})
-	}
-}
-
-func TestTransformErrors(t *testing.T) {
-	tests := []struct {
-		name       string
-		iBase      uint32
-		oBase      uint32
-		in         []byte
-		requireErr func(*testing.T, error)
-	}{
 		{
 			name:  "digit exceeds iBase",
 			iBase: 10,
@@ -166,6 +153,7 @@ func TestTransformErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := basebb.Transform(tt.iBase, tt.oBase, tt.in)

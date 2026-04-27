@@ -10,11 +10,30 @@ import (
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
+	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
+		t.Helper()
+
+		address, err := b.getResult(mnemonic)
+		require.NoError(t, err)
+
+		secretBackend := *b
+		secretBackend.secret = true
+
+		private, err := secretBackend.getResult(mnemonic)
+		require.NoError(t, err)
+
+		return address, private
+	}
+
+	defaultAddress, defaultPrivate := getAddressAndSecret(t, backendDefault())
 	tests := []struct {
-		name    string
-		index   int32
-		address string
-		private string
+		name           string
+		account        uint32
+		change         int32
+		index          int32
+		address        string
+		private        string
+		compareDefault bool
 	}{
 		{
 			name:    "index0",
@@ -28,19 +47,40 @@ func TestBackend(t *testing.T) {
 			address: "8V8WRim5cGiFtJ8QrHU8Ve9VATi9DFpQA1axnDWAYvXk",
 			private: "2wRBreTahtVmdgrad38XS7qn1JUu4w1kH28yGoqaQSXsowLdGXnpENAztF7xdn1afJuSdzHhrMPQ37ssKRZobRyt",
 		},
+		{
+			name:           "account1 changes output",
+			account:        1,
+			compareDefault: true,
+		},
+		{
+			name:           "omit trailing path segments changes output",
+			change:         changeIgnore,
+			index:          indexIgnore,
+			compareDefault: true,
+		},
+		{
+			name:           "change1 index2 changes output",
+			change:         1,
+			index:          2,
+			compareDefault: true,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pb := backendDefault()
-			pb.index = tt.index
-			address, err := pb.getResult(mnemonic)
-			require.NoError(t, err)
+			b := backendDefault()
+			b.account = tt.account
+			b.change = tt.change
+			b.index = tt.index
+
+			address, private := getAddressAndSecret(t, b)
+			if tt.compareDefault {
+				require.NotEqual(t, defaultAddress, address)
+				require.NotEqual(t, defaultPrivate, private)
+				return
+			}
+
 			require.Equal(t, tt.address, address)
-			sb := backendDefault()
-			sb.index = tt.index
-			sb.secret = true
-			private, err := sb.getResult(mnemonic)
-			require.NoError(t, err)
 			require.Equal(t, tt.private, private)
 		})
 	}
@@ -101,6 +141,7 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()

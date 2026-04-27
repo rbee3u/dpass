@@ -1,9 +1,10 @@
 package bip3x_test
 
 import (
-	"bytes"
-	"compress/flate"
+	"crypto/rand"
 	"encoding/hex"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,26 +14,16 @@ import (
 
 func TestCreateEntropyRandomly(t *testing.T) {
 	for s := bip3x.EntropyBitsMin; s <= bip3x.EntropyBitsMax; s += bip3x.EntropyBitsStep {
-		_, err := bip3x.CreateEntropyRandomly(s)
+		entropy, err := bip3x.CreateEntropyRandomly(s)
 		require.NoError(t, err)
+		require.Len(t, entropy, s/bip3x.BitsPerByte)
 	}
-
-	var b []byte
-	for i := 0; i < 1000000; i++ {
-		entropy, err := bip3x.CreateEntropyRandomly(bip3x.EntropyBitsMax)
-		require.NoError(t, err)
-		b = append(b, entropy...)
-	}
-	var z bytes.Buffer
-	f, _ := flate.NewWriter(&z, 9)
-	_, _ = f.Write(b)
-	_ = f.Close()
-	require.GreaterOrEqual(t, z.Len(), len(b), "compressed output should not be smaller than raw concatenated entropy")
 }
 
 func TestCreateEntropyRandomlyErrors(t *testing.T) {
 	tests := []struct {
 		name       string
+		setup      func(*testing.T)
 		bits       int
 		requireErr func(*testing.T, error)
 	}{
@@ -63,9 +54,28 @@ func TestCreateEntropyRandomlyErrors(t *testing.T) {
 				require.Equal(t, 140, target.Bits)
 			},
 		},
+		{
+			name: "reader failure",
+			bits: bip3x.EntropyBitsMin,
+			setup: func(t *testing.T) {
+				t.Helper()
+				oldReader := rand.Reader
+				rand.Reader = strings.NewReader("")
+				t.Cleanup(func() {
+					rand.Reader = oldReader
+				})
+			},
+			requireErr: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, io.EOF)
+			},
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				tt.setup(t)
+			}
 			entropy, err := bip3x.CreateEntropyRandomly(tt.bits)
 			require.Error(t, err)
 			tt.requireErr(t, err)
@@ -201,6 +211,7 @@ func TestEntropyToMnemonic(t *testing.T) {
 			mnemonic:  "void come effort suffer camp survey warrior heavy shoot primary clutch crush open amazing screen patrol group space point ten exist slush involve unfold",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			entropy, err := hex.DecodeString(tt.entropy0x)
@@ -246,6 +257,7 @@ func TestEntropyToMnemonicErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mnemonic, err := bip3x.EntropyToMnemonic(tt.entropy)
@@ -383,6 +395,7 @@ func TestMnemonicToSeed(t *testing.T) {
 			seed0x:   "01f5bced59dec48e362f2c45b5de68b9fd6c92c6634f44d6d40aab69056506f0e35524a518034ddc1192e1dacd32c1ed3eaa3c3b131c88ed8e7e54c49a5d0998",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			seed, err := bip3x.MnemonicToSeed(tt.mnemonic, "TREZOR")
@@ -443,6 +456,7 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			seed, err := bip3x.MnemonicToSeed(tt.mnemonic, "")

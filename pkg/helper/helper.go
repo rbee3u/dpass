@@ -12,15 +12,23 @@ import (
 	"golang.org/x/term"
 )
 
+var (
+	termIsTerminal   = term.IsTerminal
+	termReadPassword = term.ReadPassword
+	openTerminal     = func() (*os.File, error) {
+		return os.Open("/dev/tty")
+	}
+)
+
 // ReadPassword prints prompt, reads a line without echo when possible, then a trailing newline.
 // When stdin is not a TTY, it reads from /dev/tty so callers can keep stdin reserved for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
 	promptWriter := io.Writer(os.Stderr)
 
 	fileDescriptor := syscall.Stdin
-	if !term.IsTerminal(fileDescriptor) {
+	if !termIsTerminal(fileDescriptor) {
 		var terminal *os.File
-		if terminal, err = os.Open("/dev/tty"); err != nil {
+		if terminal, err = openTerminal(); err != nil {
 			return nil, fmt.Errorf("failed to open terminal: %w", err)
 		}
 
@@ -36,7 +44,7 @@ func ReadPassword(prompt string) (password []byte, err error) {
 
 	_, _ = fmt.Fprint(promptWriter, prompt)
 
-	if password, err = term.ReadPassword(fileDescriptor); err != nil {
+	if password, err = termReadPassword(fileDescriptor); err != nil {
 		return nil, fmt.Errorf("failed to read password: %w", err)
 	}
 

@@ -45,6 +45,7 @@ func TestEncodeDecode(t *testing.T) {
 			encoded: "11233QC4",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			encoded := base58.Encode(tt.raw)
@@ -57,16 +58,34 @@ func TestEncodeDecode(t *testing.T) {
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
-	inputs := [][]byte{
-		{0xff},
-		{0x01, 0x02, 0x03},
-		{0, 0, 0, 0, 0},
-		{0xde, 0xad, 0xbe, 0xef},
+	tests := []struct {
+		name  string
+		input []byte
+	}{
+		{
+			name:  "single ff",
+			input: []byte{0xff},
+		},
+		{
+			name:  "ascending bytes",
+			input: []byte{0x01, 0x02, 0x03},
+		},
+		{
+			name:  "all zeros",
+			input: []byte{0, 0, 0, 0, 0},
+		},
+		{
+			name:  "deadbeef",
+			input: []byte{0xde, 0xad, 0xbe, 0xef},
+		},
 	}
-	for _, in := range inputs {
-		decoded, err := base58.Decode(base58.Encode(in))
-		require.NoError(t, err)
-		require.Equal(t, in, decoded)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decoded, err := base58.Decode(base58.Encode(tt.input))
+			require.NoError(t, err)
+			require.Equal(t, tt.input, decoded)
+		})
 	}
 }
 
@@ -113,6 +132,7 @@ func TestDecodeErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			decoded, err := base58.Decode(tt.input)
@@ -155,6 +175,7 @@ func TestNewEncodingErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			enc, err := base58.NewEncoding(tt.alphabet)

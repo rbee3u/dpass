@@ -2,11 +2,13 @@ package bip3x_test
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
 func TestSecp256k1DeriveSk(t *testing.T) {
@@ -119,6 +121,7 @@ func TestSecp256k1DeriveSk(t *testing.T) {
 			sk0x: "3a2086edd7d9df86c3487a5905a1712a9aa664bce8cc268141e07549eaa8661d",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			seed, err := hex.DecodeString(tt.seed)
@@ -126,6 +129,87 @@ func TestSecp256k1DeriveSk(t *testing.T) {
 			sk, err := bip3x.Secp256k1DeriveSk(seed, tt.path)
 			require.NoError(t, err)
 			require.Equal(t, tt.sk0x, hex.EncodeToString(sk))
+		})
+	}
+}
+
+func TestSecp256k1DeriveSkErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		seed       string
+		path       []uint32
+		stub       func(*testing.T)
+		requireErr func(*testing.T, error)
+	}{
+		{
+			name: "invalid master key",
+			seed: "73656564",
+			path: nil,
+			stub: func(t *testing.T) {
+				bip3x.StubHmacSha512ForTest(t, func([]byte, []byte) ([]byte, []byte) {
+					return make([]byte, 32), make([]byte, 32)
+				})
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target bip3x.InvalidSecp256k1MasterKeyError
+				require.ErrorAs(t, err, &target)
+			},
+		},
+		{
+			name: "invalid intermediate key",
+			seed: "73656564",
+			path: []uint32{0},
+			stub: func(t *testing.T) {
+				calls := 0
+				bip3x.StubHmacSha512ForTest(t, func([]byte, []byte) ([]byte, []byte) {
+					calls++
+					if calls == 1 {
+						return validSecretKey(1), make([]byte, 32)
+					}
+
+					return make([]byte, 32), make([]byte, 32)
+				})
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target bip3x.InvalidSecp256k1IntermediateKeyError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, 0, target.Depth)
+				require.Equal(t, uint32(0), target.Index)
+			},
+		},
+		{
+			name: "invalid child key",
+			seed: "73656564",
+			path: []uint32{0},
+			stub: func(t *testing.T) {
+				calls := 0
+				bip3x.StubHmacSha512ForTest(t, func([]byte, []byte) ([]byte, []byte) {
+					calls++
+					if calls == 1 {
+						return validSecretKey(1), make([]byte, 32)
+					}
+
+					return validSecretKeyFromBigInt(new(big.Int).Sub(secp256k1.S256().N, big.NewInt(1))), make([]byte, 32)
+				})
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target bip3x.InvalidSecp256k1ChildKeyError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, 0, target.Depth)
+				require.Equal(t, uint32(0), target.Index)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.stub(t)
+			seed, err := hex.DecodeString(tt.seed)
+			require.NoError(t, err)
+			sk, err := bip3x.Secp256k1DeriveSk(seed, tt.path)
+			require.Error(t, err)
+			tt.requireErr(t, err)
+			require.Nil(t, sk)
 		})
 	}
 }
@@ -240,6 +324,7 @@ func TestEd25519DeriveSk(t *testing.T) {
 			sk0x: "ae20173bb3d7e58033a40ae668634d0bebae98d5f95d2cea6a89a7a22302de0d",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			seed, err := hex.DecodeString(tt.seed)
@@ -279,6 +364,7 @@ func TestEd25519DeriveSkErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			seed, err := hex.DecodeString(tt.seed)
@@ -289,4 +375,15 @@ func TestEd25519DeriveSkErrors(t *testing.T) {
 			require.Nil(t, sk)
 		})
 	}
+}
+
+func validSecretKey(value byte) []byte {
+	return validSecretKeyFromBigInt(big.NewInt(int64(value)))
+}
+
+func validSecretKeyFromBigInt(value *big.Int) []byte {
+	key := make([]byte, 32)
+	value.FillBytes(key)
+
+	return key
 }

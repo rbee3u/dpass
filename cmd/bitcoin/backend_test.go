@@ -10,13 +10,36 @@ import (
 
 func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
+	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
+		t.Helper()
+
+		address, err := b.getResult(mnemonic)
+		require.NoError(t, err)
+
+		secretBackend := *b
+		secretBackend.secret = true
+
+		private, err := secretBackend.getResult(mnemonic)
+		require.NoError(t, err)
+
+		return address, private
+	}
+
+	base := backendDefault()
+	base.purpose = purpose44
+	base.network = networkMainNet
+	defaultAddress, defaultPrivate := getAddressAndSecret(t, base)
 	tests := []struct {
-		name    string
-		purpose uint32
-		network string
-		index   uint32
-		address string
-		private string
+		name           string
+		purpose        uint32
+		network        string
+		account        uint32
+		change         uint32
+		index          uint32
+		decompress     bool
+		address        string
+		private        string
+		compareDefault bool
 	}{
 		{
 			name:    "purpose44 mainnet index0",
@@ -114,23 +137,47 @@ func TestBackend(t *testing.T) {
 			address: "bcrt1qarc2clmmcj2gujhtrh5c3568v59nnjqsaj8z9t",
 			private: "cNKY7rQ158hNMNEadp3Bysdpj4hvhKiqUAr6NeRDWruFMNVHbig9",
 		},
+		{
+			name:           "purpose44 mainnet account1 changes output",
+			purpose:        purpose44,
+			network:        networkMainNet,
+			account:        1,
+			compareDefault: true,
+		},
+		{
+			name:           "purpose44 mainnet change1 changes output",
+			purpose:        purpose44,
+			network:        networkMainNet,
+			change:         1,
+			compareDefault: true,
+		},
+		{
+			name:           "purpose44 mainnet decompress changes output",
+			purpose:        purpose44,
+			network:        networkMainNet,
+			decompress:     true,
+			compareDefault: true,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pb := backendDefault()
-			pb.purpose = tt.purpose
-			pb.network = tt.network
-			pb.index = tt.index
-			address, err := pb.getResult(mnemonic)
-			require.NoError(t, err)
+			b := backendDefault()
+			b.purpose = tt.purpose
+			b.network = tt.network
+			b.account = tt.account
+			b.change = tt.change
+			b.index = tt.index
+			b.decompress = tt.decompress
+
+			address, private := getAddressAndSecret(t, b)
+			if tt.compareDefault {
+				require.NotEqual(t, defaultAddress, address)
+				require.NotEqual(t, defaultPrivate, private)
+				return
+			}
+
 			require.Equal(t, tt.address, address)
-			sb := backendDefault()
-			sb.purpose = tt.purpose
-			sb.network = tt.network
-			sb.index = tt.index
-			sb.secret = true
-			private, err := sb.getResult(mnemonic)
-			require.NoError(t, err)
 			require.Equal(t, tt.private, private)
 		})
 	}
@@ -225,6 +272,7 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
@@ -233,6 +281,48 @@ func TestBackendErrors(t *testing.T) {
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Empty(t, result)
+		})
+	}
+}
+
+func TestResolveNetwork(t *testing.T) {
+	tests := []struct {
+		name    string
+		network string
+		want    networkConfig
+	}{
+		{
+			name:    "testnet3",
+			network: networkTestNet3,
+			want: networkConfig{
+				coin:            coinTest,
+				magicPrivateKey: 0xef,
+				magicPubKeyHash: 0x6f,
+				magicScriptHash: 0xc4,
+				magicBech32HRP:  "tb",
+			},
+		},
+		{
+			name:    "simnet",
+			network: networkSimNet,
+			want: networkConfig{
+				coin:            coinTest,
+				magicPrivateKey: 0x64,
+				magicPubKeyHash: 0x3f,
+				magicScriptHash: 0x7b,
+				magicBech32HRP:  "sb",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := backendDefault()
+			b.network = tt.network
+
+			got, err := b.resolveNetwork()
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
