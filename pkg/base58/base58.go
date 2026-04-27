@@ -18,6 +18,7 @@ const (
 
 // InvalidAlphabetError reports a non-58-length or duplicate-character alphabet.
 type InvalidAlphabetError struct {
+	// Alphabet is the rejected alphabet string.
 	Alphabet string
 }
 
@@ -27,6 +28,7 @@ func (e InvalidAlphabetError) Error() string {
 
 // InvalidCharError reports an input byte not present in the encoding alphabet.
 type InvalidCharError struct {
+	// Char is the first byte not present in the encoding alphabet.
 	Char byte
 }
 

@@ -36,6 +36,7 @@ const (
 
 // InvalidEntropyBitsError reports entropy length (in bits) outside BIP-39 allowed sizes.
 type InvalidEntropyBitsError struct {
+	// Bits is the rejected entropy length in bits.
 	Bits int
 }
 
@@ -46,6 +47,7 @@ func (e InvalidEntropyBitsError) Error() string {
 
 // InvalidSentenceBitsError reports mnemonic word-count bits that do not match a valid checksum layout.
 type InvalidSentenceBitsError struct {
+	// Bits is the rejected mnemonic length expressed in bits.
 	Bits int
 }
 
@@ -56,6 +58,7 @@ func (e InvalidSentenceBitsError) Error() string {
 
 // WordNotFoundError reports a mnemonic word missing from the embedded English wordlist.
 type WordNotFoundError struct {
+	// Word is the mnemonic token missing from the embedded English wordlist.
 	Word string
 }
 
@@ -65,7 +68,9 @@ func (e WordNotFoundError) Error() string {
 
 // DigestMismatchError reports a failed BIP-39 checksum when decoding a mnemonic to entropy.
 type DigestMismatchError struct {
-	Got  uint32
+	// Got is the checksum value encoded in the mnemonic.
+	Got uint32
+	// Want is the checksum recomputed from the decoded entropy.
 	Want uint32
 }
 
@@ -133,7 +138,9 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 	return strings.Join(sentence, " "), nil
 }
 
-// MnemonicToSeed returns the 64-byte PBKDF2-HMAC-SHA512 seed ("mnemonic" + password as salt, 2048 iterations).
+// MnemonicToSeed validates mnemonic length, wordlist membership, and checksum,
+// then returns the 64-byte PBKDF2-HMAC-SHA512 seed using
+// "mnemonic"+password as salt and 2048 iterations.
 func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 	sentence := strings.Fields(mnemonic)
 

@@ -88,12 +88,16 @@ func (curve *Curve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 }
 
 // Double returns the affine point 2*(x1, y1).
+// The sentinel (0, 0) denotes the point at infinity.
+// It panics if any other input point is not on the curve.
 func (curve *Curve) Double(x1, y1 *big.Int) (*big.Int, *big.Int) {
 	return curve.Add(x1, y1, x1, y1)
 }
 
 // ScalarMult returns k*(x1, y1) using left-to-right double-and-add over k.
 // A zero scalar yields the point-at-infinity sentinel (0, 0).
+// The sentinel (0, 0) is also accepted as the input point at infinity.
+// It panics if any other input point is not on the curve.
 func (curve *Curve) ScalarMult(x1, y1 *big.Int, k []byte) (*big.Int, *big.Int) {
 	x, y := new(big.Int), new(big.Int)
 

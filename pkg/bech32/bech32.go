@@ -18,6 +18,7 @@ func (e EmptyHrpError) Error() string {
 
 // InvalidHrpCharError reports an unsupported HRP byte.
 type InvalidHrpCharError struct {
+	// Char is the offending HRP byte.
 	Char byte
 }
 
@@ -27,9 +28,12 @@ func (e InvalidHrpCharError) Error() string {
 
 // InvalidDataValueError reports a value outside the 5-bit Bech32 alphabet range.
 type InvalidDataValueError struct {
-	Part   string
+	// Part identifies whether the invalid value came from the version prefix or payload.
+	Part string
+	// Offset is the zero-based position within Part.
 	Offset int
-	Value  byte
+	// Value is the out-of-range 5-bit value.
+	Value byte
 }
 
 func (e InvalidDataValueError) Error() string {
@@ -38,6 +42,7 @@ func (e InvalidDataValueError) Error() string {
 
 // Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
 // vs is prepended to the payload as 5-bit values (e.g. witness version); in is the remaining data bits.
+// It panics if hrp, vs, or in contain values rejected by EncodeChecked.
 func Encode(hrp string, vs, in []byte) string {
 	out, err := EncodeChecked(hrp, vs, in)
 	if err != nil {

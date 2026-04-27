@@ -16,6 +16,7 @@ const (
 
 // InvalidBaseError reports an input or output radix outside [MinBase, MaxBase].
 type InvalidBaseError struct {
+	// Base is the unsupported radix supplied by the caller.
 	Base uint32
 }
 
@@ -26,6 +27,7 @@ func (e InvalidBaseError) Error() string {
 
 // InvalidCharError reports a digit byte >= iBase during Transform.
 type InvalidCharError struct {
+	// Char is the first input digit whose value is not representable in iBase.
 	Char byte
 }
 

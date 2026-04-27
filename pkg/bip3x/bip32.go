@@ -19,6 +19,7 @@ const (
 
 // InvalidPathError reports a derivation path incompatible with the selected curve rules.
 type InvalidPathError struct {
+	// Path is the full derivation path rejected by the curve-specific rules.
 	Path []uint32
 }
 
@@ -35,7 +36,9 @@ func (e InvalidSecp256k1MasterKeyError) Error() string {
 
 // InvalidSecp256k1IntermediateKeyError reports invalid secp256k1 child intermediate key material.
 type InvalidSecp256k1IntermediateKeyError struct {
+	// Depth is the zero-based derivation step that produced the invalid material.
 	Depth int
+	// Index is the child index used at Depth.
 	Index uint32
 }
 
@@ -45,7 +48,9 @@ func (e InvalidSecp256k1IntermediateKeyError) Error() string {
 
 // InvalidSecp256k1ChildKeyError reports a derived secp256k1 child key reduced to zero.
 type InvalidSecp256k1ChildKeyError struct {
+	// Depth is the zero-based derivation step that produced the zero key.
 	Depth int
+	// Index is the child index used at Depth.
 	Index uint32
 }
 
