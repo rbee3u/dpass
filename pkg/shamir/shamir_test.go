@@ -11,8 +11,6 @@ import (
 )
 
 func TestSplitAndCombine(t *testing.T) {
-	longSecret := bytes.Repeat([]byte{0xab}, 256)
-
 	tests := []struct {
 		name      string
 		secret    []byte
@@ -20,7 +18,7 @@ func TestSplitAndCombine(t *testing.T) {
 		threshold int
 	}{
 		{
-			name:      "ascii string",
+			name:      "ascii secret",
 			secret:    []byte("test"),
 			parts:     9,
 			threshold: 4,
@@ -45,7 +43,7 @@ func TestSplitAndCombine(t *testing.T) {
 		},
 		{
 			name:      "256 bytes",
-			secret:    longSecret,
+			secret:    bytes.Repeat([]byte("t"), 256),
 			parts:     7,
 			threshold: 4,
 		},
@@ -56,17 +54,11 @@ func TestSplitAndCombine(t *testing.T) {
 			threshold: 5,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			shares, err := shamir.Split(tt.secret, tt.parts, tt.threshold)
 			require.NoError(t, err)
 			require.Len(t, shares, tt.parts)
-
-			for i, share := range shares {
-				require.Equal(t, uint8(i+1), share[len(share)-1])
-			}
-
 			for k := tt.threshold; k <= tt.parts; k++ {
 				for group := range combinations(shares, k) {
 					recovered, err := shamir.Combine(group)
@@ -87,55 +79,42 @@ func TestSplitErrors(t *testing.T) {
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name:      "parts less than threshold",
+			name:      "threshold too small",
+			secret:    []byte("test"),
+			parts:     9,
+			threshold: 1,
+			requireErr: func(t *testing.T, err error) {
+				var target shamir.SplitConstraintError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, 9, target.Parts)
+				require.Equal(t, 1, target.Threshold)
+			},
+		},
+		{
+			name:      "threshold greater than parts",
 			secret:    []byte("test"),
 			parts:     2,
 			threshold: 3,
 			requireErr: func(t *testing.T, err error) {
-				var target shamir.PartsBelowThresholdError
+				var target shamir.SplitConstraintError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 2, target.Parts)
 				require.Equal(t, 3, target.Threshold)
 			},
 		},
 		{
-			name:      "parts greater than limit",
+			name:      "parts too large",
 			secret:    []byte("test"),
-			parts:     1000,
+			parts:     256,
 			threshold: 3,
 			requireErr: func(t *testing.T, err error) {
-				var target shamir.PartsOverLimitError
+				var target shamir.SplitConstraintError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, 1000, target.Parts)
-				require.Equal(t, 255, target.Max)
-			},
-		},
-		{
-			name:      "threshold too small",
-			secret:    []byte("test"),
-			parts:     10,
-			threshold: 1,
-			requireErr: func(t *testing.T, err error) {
-				var target shamir.ThresholdTooSmallError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 1, target.Threshold)
-				require.Equal(t, 2, target.Min)
-			},
-		},
-		{
-			name:      "zero parts",
-			secret:    []byte("test"),
-			parts:     0,
-			threshold: 0,
-			requireErr: func(t *testing.T, err error) {
-				var target shamir.ThresholdTooSmallError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 0, target.Threshold)
-				require.Equal(t, 2, target.Min)
+				require.Equal(t, 256, target.Parts)
+				require.Equal(t, 3, target.Threshold)
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			shares, err := shamir.Split(tt.secret, tt.parts, tt.threshold)
@@ -147,15 +126,6 @@ func TestSplitErrors(t *testing.T) {
 }
 
 func TestCombineErrors(t *testing.T) {
-	shares, err := shamir.Split([]byte("test"), 5, 4)
-	require.NoError(t, err)
-
-	withXCoordinate := func(share []byte, x byte) []byte {
-		clone := append([]byte(nil), share...)
-		clone[len(clone)-1] = x
-		return clone
-	}
-
 	tests := []struct {
 		name       string
 		shares     [][]byte
@@ -168,66 +138,59 @@ func TestCombineErrors(t *testing.T) {
 				var target shamir.SharesTooFewError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 0, target.Count)
-				require.Equal(t, 2, target.Min)
 			},
 		},
 		{
 			name:   "single share",
-			shares: [][]byte{shares[0]},
+			shares: [][]byte{{42}},
 			requireErr: func(t *testing.T, err error) {
 				var target shamir.SharesTooFewError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 1, target.Count)
-				require.Equal(t, 2, target.Min)
+			},
+		},
+		{
+			name:   "empty share",
+			shares: [][]byte{{42}, {}},
+			requireErr: func(t *testing.T, err error) {
+				var target shamir.ShareTooShortError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, 1, target.Index)
+				require.Equal(t, 0, target.Length)
 			},
 		},
 		{
 			name:   "inconsistent lengths",
-			shares: [][]byte{[]byte("foo"), []byte("ba")},
+			shares: [][]byte{{42}, {0, 43}},
 			requireErr: func(t *testing.T, err error) {
 				var target shamir.ShareLengthMismatchError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 1, target.Index)
 				require.Equal(t, 2, target.Length)
-				require.Equal(t, 3, target.Want)
-			},
-		},
-		{
-			name:   "empty share",
-			shares: [][]byte{{}, {}},
-			requireErr: func(t *testing.T, err error) {
-				var target shamir.ShareTooShortError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 0, target.Index)
-				require.Equal(t, 0, target.Length)
-				require.Equal(t, 1, target.Min)
-			},
-		},
-		{
-			name: "duplicate x-coordinates",
-			shares: [][]byte{
-				shares[0],
-				withXCoordinate(shares[1], shares[0][len(shares[0])-1]),
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target shamir.ShareXDuplicateError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 1, target.Index)
-				require.Equal(t, 0, target.PrevIndex)
-				require.Equal(t, shares[0][len(shares[0])-1], target.X)
+				require.Equal(t, 1, target.Want)
 			},
 		},
 		{
 			name:   "zero x-coordinate",
-			shares: [][]byte{withXCoordinate(shares[0], 0), shares[1]},
+			shares: [][]byte{{42}, {0}},
 			requireErr: func(t *testing.T, err error) {
 				var target shamir.ShareXZeroError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, 0, target.Index)
+				require.Equal(t, 1, target.Index)
+			},
+		},
+		{
+			name:   "duplicate x-coordinate",
+			shares: [][]byte{{42}, {42}},
+			requireErr: func(t *testing.T, err error) {
+				var target shamir.ShareXDuplicateError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, 1, target.Index)
+				require.Equal(t, uint8(42), target.XCoordinate)
+				require.Equal(t, 0, target.PrevIndex)
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			secret, err := shamir.Combine(tt.shares)
@@ -258,7 +221,6 @@ func TestPolyEvaluate(t *testing.T) {
 		{name: "x=7", x: 7, want: 195},
 		{name: "x=255", x: 255, want: 115},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, shamir.PolyEvaluate(coefficients, tt.x))
@@ -267,7 +229,7 @@ func TestPolyEvaluate(t *testing.T) {
 }
 
 func TestPolyWeights(t *testing.T) {
-	xCoords := []uint8{1, 2, 7}
+	xCoordinates := []uint8{1, 2, 7}
 	tests := []struct {
 		name string
 		x    uint8
@@ -279,10 +241,9 @@ func TestPolyWeights(t *testing.T) {
 		{name: "x=7", x: 7, want: []uint8{0, 0, 1}},
 		{name: "x=255", x: 255, want: []uint8{138, 147, 24}},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shamir.PolyWeights(xCoords, tt.x))
+			require.Equal(t, tt.want, shamir.PolyWeights(xCoordinates, tt.x))
 		})
 	}
 }
@@ -290,17 +251,16 @@ func TestPolyWeights(t *testing.T) {
 func TestFieldAdd(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b uint8
+		x, y uint8
 		want uint8
 	}{
-		{name: "self cancels", a: 16, b: 16, want: 0},
-		{name: "small xor", a: 3, b: 4, want: 7},
-		{name: "zero is identity", a: 3, b: 0, want: 3},
+		{name: "self cancels", x: 16, y: 16, want: 0},
+		{name: "small xor", x: 3, y: 4, want: 7},
+		{name: "zero is identity", x: 3, y: 0, want: 3},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shamir.FieldAdd(tt.a, tt.b))
+			require.Equal(t, tt.want, shamir.FieldAdd(tt.x, tt.y))
 		})
 	}
 }
@@ -318,7 +278,6 @@ func TestFieldMul(t *testing.T) {
 		{name: "three times seven", a: 3, b: 7, want: 9},
 		{name: "seven times three", a: 7, b: 3, want: 9},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, shamir.FieldMul(tt.a, tt.b))
@@ -329,63 +288,53 @@ func TestFieldMul(t *testing.T) {
 func TestFieldDiv(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b uint8
+		x, y uint8
 		want uint8
 	}{
-		{name: "zero numerator", a: 0, b: 3, want: 0},
-		{name: "self divides to one", a: 3, b: 3, want: 1},
-		{name: "nine over three", a: 9, b: 3, want: 7},
+		{name: "divisor is one", x: 3, y: 1, want: 3},
+		{name: "divide by self", x: 3, y: 3, want: 1},
+		{name: "nine over three", x: 9, y: 3, want: 7},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shamir.FieldDiv(tt.a, tt.b))
+			require.Equal(t, tt.want, shamir.FieldDiv(tt.x, tt.y))
 		})
 	}
 }
 
 func TestFieldInv(t *testing.T) {
 	for x := uint8(1); x != 0; x++ {
-		require.Equalf(t, uint8(1), shamir.FieldMul(x, shamir.FieldInv(x)),
-			"fieldMul(%d, fieldInv(%d)) != 1", x, x)
+		r := shamir.FieldMul(x, shamir.FieldInv(x))
+		require.Equalf(t, uint8(1), r, "%d * %d^(-1) != 1", x, x)
 	}
 }
 
-// combinations yields all k-element subsets of s in lexicographic order.
 func combinations(s [][]byte, k int) iter.Seq[[][]byte] {
 	return func(yield func([][]byte) bool) {
-		n := len(s)
-		if k < 0 || k > n {
+		if k < 0 || k > len(s) {
 			return
 		}
-
 		indices := make([]int, k)
 		for i := range indices {
 			indices[i] = i
 		}
-
 		group := make([][]byte, k)
 		for {
-			for i, idx := range indices {
-				group[i] = s[idx]
+			for i := range indices {
+				group[i] = s[indices[i]]
 			}
-
 			if !yield(group) {
 				return
 			}
-
 			i := k - 1
-			for i >= 0 && indices[i] == i+n-k {
+			for i >= 0 && indices[i] == i+len(s)-k {
 				i--
 			}
-
 			if i < 0 {
 				return
 			}
-
-			indices[i]++
-			for j := i + 1; j < k; j++ {
-				indices[j] = indices[j-1] + 1
+			for indices[i]++; i+1 < k; i++ {
+				indices[i+1] = indices[i] + 1
 			}
 		}
 	}

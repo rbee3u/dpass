@@ -258,10 +258,10 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 		return shareMetadata{}, err
 	}
 
-	if threshold < shamir.MinThreshold || threshold > shamir.MaxParts {
+	if threshold < shamir.MinShares || threshold > shamir.MaxShares {
 		return shareMetadata{}, invalidHeaderError{
 			Position: position, Key: "M", Value: threshold,
-			Detail: fmt.Sprintf("must be within [%d, %d]", shamir.MinThreshold, shamir.MaxParts),
+			Detail: fmt.Sprintf("must be within [%d, %d]", shamir.MinShares, shamir.MaxShares),
 		}
 	}
 
@@ -270,10 +270,10 @@ func decodeShareBlockMetadata(block *pem.Block, position int) (shareMetadata, er
 		return shareMetadata{}, err
 	}
 
-	if parts < threshold || parts > shamir.MaxParts {
+	if parts < threshold || parts > shamir.MaxShares {
 		return shareMetadata{}, invalidHeaderError{
 			Position: position, Key: "N", Value: parts,
-			Detail: fmt.Sprintf("must be within [%d, %d]", threshold, shamir.MaxParts),
+			Detail: fmt.Sprintf("must be within [%d, %d]", threshold, shamir.MaxShares),
 		}
 	}
 

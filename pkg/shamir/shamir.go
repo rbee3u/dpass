@@ -3,17 +3,13 @@ package shamir
 
 import "crypto/rand"
 
-// MaxParts is the largest number of shares Split can produce because each
-// share stores its x-coordinate in a single non-zero byte.
-const MaxParts = 255
+// MinShares is the smallest valid threshold and the fewest shares required
+// before attempting polynomial interpolation.
+const MinShares = 2
 
-// MinThreshold is the smallest threshold Split accepts to ensure the secret is
-// reconstructed from multiple shares rather than a single share.
-const MinThreshold = 2
-
-// MinCombineShares is the fewest shares Combine accepts before attempting
-// polynomial interpolation.
-const MinCombineShares = 2
+// MaxShares is the largest valid share count because each share encodes its
+// x-coordinate in a single non-zero byte.
+const MaxShares = 255
 
 // MinShareLength is the smallest valid encoded share length, consisting only
 // of the trailing x-coordinate byte and an empty secret payload.
@@ -21,117 +17,68 @@ const MinShareLength = 1
 
 // Split divides a secret into shares using Shamir's Secret Sharing over GF(2^8).
 // Reconstructing the original secret requires at least threshold shares.
-// Constraints: 2 <= threshold <= parts <= 255.
+// Constraints: MinShares <= threshold <= parts <= MaxShares.
+// Invalid inputs fail with SplitConstraintError.
 // Each share is len(secret)+1 bytes long; the last byte stores its unique
 // non-zero x-coordinate, and the preceding bytes store the evaluated secret
 // polynomial values.
 // The returned share format does not encode threshold, so callers that persist
 // or transport shares must track that value separately before calling Combine.
 func Split(secret []byte, parts, threshold int) ([][]byte, error) {
-	if parts > MaxParts {
-		return nil, PartsOverLimitError{Parts: parts, Max: MaxParts}
+	if !(MinShares <= threshold && threshold <= parts && parts <= MaxShares) {
+		return nil, SplitConstraintError{Parts: parts, Threshold: threshold}
 	}
-
-	if threshold < MinThreshold {
-		return nil, ThresholdTooSmallError{Threshold: threshold, Min: MinThreshold}
-	}
-
-	if parts < threshold {
-		return nil, PartsBelowThresholdError{Parts: parts, Threshold: threshold}
-	}
-
-	last := len(secret)
 
 	shares := make([][]byte, parts)
-
-	for i := range parts {
-		x := uint8(i + 1)
-		shares[i] = make([]byte, last+1)
-		shares[i][last] = x
+	for i := range shares {
+		shares[i] = make([]byte, len(secret)+1)
+		shares[i][len(secret)] = uint8(i + 1)
 	}
-
-	for j, value := range secret {
-		coefficients := polyGenerate(threshold-1, value)
-		for _, share := range shares {
-			share[j] = polyEvaluate(coefficients, share[last])
+	for j := range secret {
+		coefficients := polyGenerate(threshold-1, secret[j])
+		for i := range shares {
+			shares[i][j] = polyEvaluate(coefficients, shares[i][len(secret)])
 		}
 	}
-
 	return shares, nil
 }
 
 // Combine reconstructs the secret from shares produced by Split.
 // It validates only the share encoding: callers must provide at least two
-// non-empty shares of the same length, each with a distinct non-zero
-// x-coordinate stored in the last byte.
+// shares of the same length, each at least MinShareLength bytes long, with a
+// distinct non-zero x-coordinate stored in the last byte.
 // The share format does not encode the original threshold, so Combine cannot
 // verify that enough shares were provided. Callers must enforce that
 // precondition before calling; otherwise Combine may return incorrect data
 // without reporting an error.
 func Combine(shares [][]byte) ([]byte, error) {
-	if len(shares) < MinCombineShares {
-		return nil, SharesTooFewError{
-			Count: len(shares),
-			Min:   MinCombineShares,
-		}
+	if len(shares) < MinShares {
+		return nil, SharesTooFewError{Count: len(shares)}
 	}
-
-	shareLen := 0
-	last := 0
-	xCoordinates := make([]uint8, len(shares))
-
-	seen := make(map[uint8]int, len(shares))
-
-	for i, share := range shares {
-		if len(share) < MinShareLength {
-			return nil, ShareTooShortError{
-				Index:  i,
-				Length: len(share),
-				Min:    MinShareLength,
-			}
+	xCoordinates, seen := make([]uint8, len(shares)), make(map[uint8]int, len(shares))
+	for i := range shares {
+		if len(shares[i]) < MinShareLength {
+			return nil, ShareTooShortError{Index: i, Length: len(shares[i])}
 		}
-
-		if i == 0 {
-			shareLen = len(share)
-			last = shareLen - 1
-		} else if len(share) != shareLen {
-			return nil, ShareLengthMismatchError{
-				Index:  i,
-				Length: len(share),
-				Want:   shareLen,
-			}
+		if i != 0 && len(shares[i]) != len(shares[0]) {
+			return nil, ShareLengthMismatchError{Index: i, Length: len(shares[i]), Want: len(shares[0])}
 		}
-
-		xCoordinate := share[last]
-
+		xCoordinate := shares[i][len(shares[i])-1]
 		if xCoordinate == 0 {
 			return nil, ShareXZeroError{Index: i}
 		}
-
-		if previousIndex, exists := seen[xCoordinate]; exists {
-			return nil, ShareXDuplicateError{
-				Index:     i,
-				PrevIndex: previousIndex,
-				X:         xCoordinate,
-			}
+		if prevIndex, exists := seen[xCoordinate]; exists {
+			return nil, ShareXDuplicateError{Index: i, XCoordinate: xCoordinate, PrevIndex: prevIndex}
 		}
-
-		seen[xCoordinate] = i
-		xCoordinates[i] = xCoordinate
+		xCoordinates[i], seen[xCoordinate] = xCoordinate, i
 	}
 
-	weights := polyWeights(xCoordinates, 0)
-	secret := make([]byte, shareLen-1)
-
+	secret, weights := make([]byte, len(shares[0])-1), polyWeights(xCoordinates, 0)
 	for j := range secret {
-		var value uint8
-		for i, share := range shares {
-			value = fieldAdd(value, fieldMul(weights[i], share[j]))
+		for i := range shares {
+			secret[j] = fieldAdd(secret[j], fieldMul(weights[i], shares[i][j]))
 		}
-
-		secret[j] = value
 	}
-
 	return secret, nil
 }
 
@@ -140,9 +87,7 @@ func Combine(shares [][]byte) ([]byte, error) {
 // when degree > 0, the leading coefficient is guaranteed non-zero.
 func polyGenerate(degree int, intercept uint8) []uint8 {
 	coefficients := make([]uint8, degree+1)
-
 	coefficients[0] = intercept
-
 	if degree > 0 {
 		// crypto/rand.Read always returns len(p), nil since Go 1.20;
 		// it panics instead of returning an error on failure.
@@ -151,7 +96,6 @@ func polyGenerate(degree int, intercept uint8) []uint8 {
 			_, _ = rand.Read(coefficients[degree:])
 		}
 	}
-
 	return coefficients
 }
 
@@ -162,7 +106,6 @@ func polyEvaluate(coefficients []uint8, x uint8) uint8 {
 	for i := len(coefficients) - 1; i >= 0; i-- {
 		y = fieldAdd(fieldMul(y, x), coefficients[i])
 	}
-
 	return y
 }
 
@@ -177,14 +120,12 @@ func polyWeights(xCoordinates []uint8, x uint8) []uint8 {
 			if i == j {
 				continue
 			}
-
 			weights[i] = fieldMul(weights[i], fieldDiv(
 				fieldAdd(x, xCoordinates[j]),
 				fieldAdd(xCoordinates[i], xCoordinates[j]),
 			))
 		}
 	}
-
 	return weights
 }
 
@@ -202,7 +143,6 @@ func fieldMul(x, y uint8) uint8 {
 	for i := 7; i >= 0; i-- {
 		z = (z << 1) ^ (-(z >> 7) & 0x1b) ^ (-(x >> i & 1) & y)
 	}
-
 	return z
 }
 
@@ -226,6 +166,5 @@ func fieldInv(x uint8) uint8 {
 	x63 := fieldMul(x48, x15)
 	x126 := fieldMul(x63, x63)
 	x127 := fieldMul(x126, x)
-
 	return fieldMul(x127, x127)
 }

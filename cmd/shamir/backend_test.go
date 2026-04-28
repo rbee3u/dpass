@@ -77,7 +77,7 @@ func TestSplitBackendErrors(t *testing.T) {
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name: "parts less than threshold",
+			name: "threshold greater than parts",
 			run: func(t *testing.T) error {
 				sb := splitBackendDefault()
 				sb.parts = 2
@@ -88,7 +88,7 @@ func TestSplitBackendErrors(t *testing.T) {
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.PartsBelowThresholdError
+				var target shamir.SplitConstraintError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 2, target.Parts)
 				require.Equal(t, 3, target.Threshold)
@@ -106,10 +106,10 @@ func TestSplitBackendErrors(t *testing.T) {
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.PartsOverLimitError
+				var target shamir.SplitConstraintError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 256, target.Parts)
-				require.Equal(t, shamir.MaxParts, target.Max)
+				require.Equal(t, 3, target.Threshold)
 			},
 		},
 		{
@@ -124,10 +124,10 @@ func TestSplitBackendErrors(t *testing.T) {
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.ThresholdTooSmallError
+				var target shamir.SplitConstraintError
 				require.ErrorAs(t, err, &target)
+				require.Equal(t, 3, target.Parts)
 				require.Equal(t, 1, target.Threshold)
-				require.Equal(t, shamir.MinThreshold, target.Min)
 			},
 		},
 	}
@@ -585,41 +585,32 @@ N: 9
 	return blocks
 }
 
-// combinations yields all k-element subsets of s in lexicographic order.
 func combinations(s []*pem.Block, k int) iter.Seq[[]*pem.Block] {
 	return func(yield func([]*pem.Block) bool) {
-		n := len(s)
-		if k < 0 || k > n {
+		if k < 0 || k > len(s) {
 			return
 		}
-
 		indices := make([]int, k)
 		for i := range indices {
 			indices[i] = i
 		}
-
 		group := make([]*pem.Block, k)
 		for {
-			for i, idx := range indices {
-				group[i] = s[idx]
+			for i := range indices {
+				group[i] = s[indices[i]]
 			}
-
 			if !yield(group) {
 				return
 			}
-
 			i := k - 1
-			for i >= 0 && indices[i] == i+n-k {
+			for i >= 0 && indices[i] == i+len(s)-k {
 				i--
 			}
-
 			if i < 0 {
 				return
 			}
-
-			indices[i]++
-			for j := i + 1; j < k; j++ {
-				indices[j] = indices[j-1] + 1
+			for indices[i]++; i+1 < k; i++ {
+				indices[i+1] = indices[i] + 1
 			}
 		}
 	}
