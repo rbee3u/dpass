@@ -5,12 +5,187 @@ import (
 	"errors"
 	"io"
 	"os"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/rbee3u/dpass/pkg/helper"
 )
+
+func TestReadPassword(t *testing.T) {
+	tests := []struct {
+		name          string
+		isNotTerminal bool
+	}{
+		{
+			name:          "stdin is not terminal",
+			isNotTerminal: true,
+		},
+		{
+			name:          "stdin is terminal",
+			isNotTerminal: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			promptReader, promptWriter, err := os.Pipe()
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, promptReader.Close())
+			})
+			helper.StubIsNotTerminal(t, func(int) bool {
+				return tt.isNotTerminal
+			})
+			var wantFd int
+			var openTerminalCalled bool
+			if tt.isNotTerminal {
+				wantFd = int(promptWriter.Fd())
+				helper.StubOpenTerminal(t, func() (*os.File, error) {
+					openTerminalCalled = true
+					return promptWriter, nil
+				})
+			} else {
+				wantFd = syscall.Stdin
+				helper.Stub(t, &os.Stderr, promptWriter)
+				helper.StubOpenTerminal(t, func() (*os.File, error) {
+					openTerminalCalled = true
+					return nil, errors.New("unexpected terminal open")
+				})
+			}
+			var gotFd int
+			helper.StubReadPassword(t, func(fd int) ([]byte, error) {
+				gotFd = fd
+				return []byte("secret"), nil
+			})
+			password, err := helper.ReadPassword("Enter password: ")
+			require.NoError(t, err)
+			require.Equal(t, []byte("secret"), password)
+			require.Equal(t, wantFd, gotFd)
+			require.Equal(t, tt.isNotTerminal, openTerminalCalled)
+			if !tt.isNotTerminal {
+				require.NoError(t, promptWriter.Close())
+			}
+			prompt, err := io.ReadAll(promptReader)
+			require.NoError(t, err)
+			require.Equal(t, "Enter password: \n", string(prompt))
+		})
+	}
+}
+
+func TestReadPasswordErrors(t *testing.T) {
+	t.Run("fails to open terminal", func(t *testing.T) {
+		expected := errors.New("no tty")
+		helper.StubIsNotTerminal(t, func(int) bool {
+			return true
+		})
+		helper.StubOpenTerminal(t, func() (*os.File, error) {
+			return nil, expected
+		})
+		password, err := helper.ReadPassword("Enter password: ")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to open terminal for password input")
+		require.ErrorIs(t, err, expected)
+		require.Nil(t, password)
+	})
+	t.Run("fails to write password prompt", func(t *testing.T) {
+		_, promptWriter, err := os.Pipe()
+		require.NoError(t, err)
+		require.NoError(t, promptWriter.Close())
+		helper.Stub(t, &os.Stderr, promptWriter)
+		var readPasswordCalled bool
+		helper.StubIsNotTerminal(t, func(int) bool {
+			return false
+		})
+		helper.StubReadPassword(t, func(int) ([]byte, error) {
+			readPasswordCalled = true
+			return []byte("secret"), nil
+		})
+		password, err := helper.ReadPassword("Enter password: ")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to write password prompt")
+		require.ErrorIs(t, err, os.ErrClosed)
+		require.Nil(t, password)
+		require.False(t, readPasswordCalled)
+	})
+	t.Run("fails to capture password input", func(t *testing.T) {
+		expected := errors.New("read failed")
+		promptReader, promptWriter, err := os.Pipe()
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, promptReader.Close())
+		})
+		helper.Stub(t, &os.Stderr, promptWriter)
+		helper.StubIsNotTerminal(t, func(int) bool {
+			return false
+		})
+		helper.StubReadPassword(t, func(int) ([]byte, error) {
+			return nil, expected
+		})
+		password, err := helper.ReadPassword("Enter password: ")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to capture password input")
+		require.ErrorIs(t, err, expected)
+		require.Nil(t, password)
+		require.NoError(t, promptWriter.Close())
+		_, err = io.ReadAll(promptReader)
+		require.NoError(t, err)
+	})
+	t.Run("fails to finalize password prompt", func(t *testing.T) {
+		promptReader, promptWriter, err := os.Pipe()
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, promptReader.Close())
+		})
+		helper.Stub(t, &os.Stderr, promptWriter)
+		var readPasswordCalled bool
+		helper.StubIsNotTerminal(t, func(int) bool {
+			return false
+		})
+		helper.StubReadPassword(t, func(int) ([]byte, error) {
+			readPasswordCalled = true
+			require.NoError(t, promptWriter.Close())
+			return []byte("secret"), nil
+		})
+		password, err := helper.ReadPassword("Enter password: ")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to finalize password prompt")
+		require.ErrorIs(t, err, os.ErrClosed)
+		require.Nil(t, password)
+		require.True(t, readPasswordCalled)
+	})
+	t.Run("fails to close terminal", func(t *testing.T) {
+		expected := errors.New("close failed")
+		promptReader, promptWriter, err := os.Pipe()
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, promptReader.Close())
+		})
+		helper.StubIsNotTerminal(t, func(int) bool {
+			return true
+		})
+		helper.StubOpenTerminal(t, func() (*os.File, error) {
+			return promptWriter, nil
+		})
+		helper.StubCloseTerminal(t, func(terminal *os.File) error {
+			require.NoError(t, terminal.Close())
+			return expected
+		})
+		helper.StubReadPassword(t, func(int) ([]byte, error) {
+			return []byte("secret"), nil
+		})
+
+		password, err := helper.ReadPassword("Enter password: ")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to close terminal used for password input")
+		require.ErrorIs(t, err, expected)
+		require.Nil(t, password)
+
+		prompt, err := io.ReadAll(promptReader)
+		require.NoError(t, err)
+		require.Equal(t, "Enter password: \n", string(prompt))
+	})
+}
 
 func TestDeriveKey(t *testing.T) {
 	tests := []struct {
@@ -29,140 +204,9 @@ func TestDeriveKey(t *testing.T) {
 			hexKey:   "73f32f797252f2756f4342205ff8944efa4cf62a4ce3b9a10e8a13bcdc3af1fa",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key := helper.DeriveKey(tt.password)
-			hexKey := hex.EncodeToString(key)
-			require.Equal(t, tt.hexKey, hexKey)
+			require.Equal(t, tt.hexKey, hex.EncodeToString(helper.DeriveKey(tt.password)))
 		})
 	}
-}
-
-func TestReadPassword(t *testing.T) {
-	promptReader, promptWriter, err := os.Pipe()
-	require.NoError(t, err)
-
-	wantFD := int(promptWriter.Fd())
-	var gotFD int
-	helper.StubPasswordDependenciesForTest(
-		t,
-		func(int) bool {
-			return false
-		},
-		func(fd int) ([]byte, error) {
-			gotFD = fd
-			return []byte("secret"), nil
-		},
-		func() (*os.File, error) {
-			return promptWriter, nil
-		},
-	)
-
-	password, err := helper.ReadPassword("Enter password: ")
-	require.NoError(t, err)
-	require.Equal(t, []byte("secret"), password)
-	require.Equal(t, wantFD, gotFD)
-
-	prompt, err := io.ReadAll(promptReader)
-	require.NoError(t, err)
-	require.Equal(t, "Enter password: \n", string(prompt))
-
-	require.NoError(t, promptReader.Close())
-}
-
-func TestReadPasswordErrors(t *testing.T) {
-	t.Run("fails to open terminal", func(t *testing.T) {
-		expected := errors.New("no tty")
-
-		helper.StubPasswordDependenciesForTest(
-			t,
-			func(int) bool {
-				return false
-			},
-			nil,
-			func() (*os.File, error) {
-				return nil, expected
-			},
-		)
-
-		password, err := helper.ReadPassword("Enter password: ")
-		require.Error(t, err)
-		require.ErrorContains(t, err, "failed to open terminal")
-		require.ErrorIs(t, err, expected)
-		require.Nil(t, password)
-	})
-
-	t.Run("fails to read password", func(t *testing.T) {
-		expected := errors.New("read failed")
-
-		stderrReader, stderrWriter, err := os.Pipe()
-		require.NoError(t, err)
-		oldStderr := os.Stderr
-		os.Stderr = stderrWriter
-		t.Cleanup(func() {
-			os.Stderr = oldStderr
-		})
-
-		helper.StubPasswordDependenciesForTest(
-			t,
-			func(int) bool {
-				return true
-			},
-			func(int) ([]byte, error) {
-				return nil, expected
-			},
-			nil,
-		)
-
-		password, err := helper.ReadPassword("Enter password: ")
-		require.Error(t, err)
-		require.ErrorContains(t, err, "failed to read password")
-		require.ErrorIs(t, err, expected)
-		require.Nil(t, password)
-
-		require.NoError(t, stderrWriter.Close())
-		_, err = io.ReadAll(stderrReader)
-		require.NoError(t, err)
-		require.NoError(t, stderrReader.Close())
-	})
-}
-
-func TestReadMnemonic(t *testing.T) {
-	stdinReader, stdinWriter, err := os.Pipe()
-	require.NoError(t, err)
-	oldStdin := os.Stdin
-	os.Stdin = stdinReader
-	t.Cleanup(func() {
-		os.Stdin = oldStdin
-	})
-
-	_, err = stdinWriter.WriteString("  abandon\tabandon\nabout  \n")
-	require.NoError(t, err)
-	require.NoError(t, stdinWriter.Close())
-
-	mnemonic, err := helper.ReadMnemonic()
-	require.NoError(t, err)
-	require.Equal(t, "abandon abandon about", mnemonic)
-
-	require.NoError(t, stdinReader.Close())
-}
-
-func TestReadMnemonicErrors(t *testing.T) {
-	stdinReader, stdinWriter, err := os.Pipe()
-	require.NoError(t, err)
-	require.NoError(t, stdinReader.Close())
-	require.NoError(t, stdinWriter.Close())
-
-	oldStdin := os.Stdin
-	os.Stdin = stdinReader
-	t.Cleanup(func() {
-		os.Stdin = oldStdin
-	})
-
-	mnemonic, err := helper.ReadMnemonic()
-	require.Error(t, err)
-	require.ErrorContains(t, err, "failed to read mnemonic")
-	require.ErrorIs(t, err, os.ErrClosed)
-	require.Empty(t, mnemonic)
 }

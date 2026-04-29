@@ -1,11 +1,10 @@
-// Package helper provides shared CLI helpers for passwords, mnemonics, and keys.
+// Package helper provides shared CLI helpers for passwords and key derivation.
 package helper
 
 import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"syscall"
 
 	"golang.org/x/crypto/argon2"
@@ -13,43 +12,40 @@ import (
 )
 
 var (
-	termIsTerminal   = term.IsTerminal
-	termReadPassword = term.ReadPassword
-	openTerminal     = func() (*os.File, error) {
-		return os.Open("/dev/tty")
-	}
+	isNotTerminal = func(fd int) bool { return !term.IsTerminal(fd) }
+	openTerminal  = func() (*os.File, error) { return os.Open("/dev/tty") }
+	closeTerminal = func(terminal *os.File) error { return terminal.Close() }
+	readPassword  = term.ReadPassword
 )
 
-// ReadPassword prints prompt, reads a line without echo when possible, then a trailing newline.
-// When stdin is not a TTY, it reads from /dev/tty so callers can keep stdin reserved for piped command data.
+// ReadPassword prints prompt, reads a line without echo when possible, and appends a
+// trailing newline after a successful read.
+// When stdin is not a TTY, it reads from /dev/tty so callers can keep stdin reserved
+// for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
-	promptWriter := io.Writer(os.Stderr)
-
-	fileDescriptor := syscall.Stdin
-	if !termIsTerminal(fileDescriptor) {
+	fd, promptWriter := syscall.Stdin, io.Writer(os.Stderr)
+	if isNotTerminal(fd) {
 		var terminal *os.File
 		if terminal, err = openTerminal(); err != nil {
-			return nil, fmt.Errorf("failed to open terminal: %w", err)
+			return nil, fmt.Errorf("failed to open terminal for password input: %w", err)
 		}
-
 		defer func() {
-			if e := terminal.Close(); e != nil && err == nil {
-				err = fmt.Errorf("failed to close terminal: %w", e)
+			if e := closeTerminal(terminal); e != nil && err == nil {
+				password = nil
+				err = fmt.Errorf("failed to close terminal used for password input: %w", e)
 			}
 		}()
-
-		fileDescriptor = int(terminal.Fd())
-		promptWriter = terminal
+		fd, promptWriter = int(terminal.Fd()), terminal
 	}
-
-	_, _ = fmt.Fprint(promptWriter, prompt)
-
-	if password, err = termReadPassword(fileDescriptor); err != nil {
-		return nil, fmt.Errorf("failed to read password: %w", err)
+	if _, err = fmt.Fprint(promptWriter, prompt); err != nil {
+		return nil, fmt.Errorf("failed to write password prompt: %w", err)
 	}
-
-	_, _ = fmt.Fprintln(promptWriter)
-
+	if password, err = readPassword(fd); err != nil {
+		return nil, fmt.Errorf("failed to capture password input: %w", err)
+	}
+	if _, err = fmt.Fprintln(promptWriter); err != nil {
+		return nil, fmt.Errorf("failed to finalize password prompt: %w", err)
+	}
 	return password, nil
 }
 
@@ -58,16 +54,5 @@ func ReadPassword(prompt string) (password []byte, err error) {
 // Changing them would make existing encrypted payloads undecryptable with this function.
 func DeriveKey(password []byte) []byte {
 	salt := []byte("github.com/rbee3u/dpass/internal/dpass.DeriveKey")
-
 	return argon2.IDKey(password, salt, 16, 1*1024*1024, 2, 32)
-}
-
-// ReadMnemonic reads stdin and returns whitespace-normalized BIP-39 words (single spaces).
-func ReadMnemonic() (string, error) {
-	mnemonic, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", fmt.Errorf("failed to read mnemonic: %w", err)
-	}
-
-	return strings.Join(strings.Fields(string(mnemonic)), " "), nil
 }

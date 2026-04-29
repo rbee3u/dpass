@@ -3,6 +3,7 @@ package dogecoin
 
 import (
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"slices"
@@ -12,7 +13,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/base58"
 	"github.com/rbee3u/dpass/pkg/bip3x"
 	"github.com/rbee3u/dpass/pkg/hashx"
-	"github.com/rbee3u/dpass/pkg/helper"
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
@@ -94,12 +94,12 @@ func (b *backend) checkArguments() error {
 
 // runE reads a mnemonic and prints a Dogecoin address or WIF.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
-	mnemonic, err := helper.ReadMnemonic()
+	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
 
-	result, err := b.getResult(mnemonic)
+	result, err := b.getResult(string(mnemonic))
 	if err != nil {
 		return err
 	}

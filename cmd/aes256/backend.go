@@ -61,7 +61,7 @@ func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
 
 	password, err := helper.ReadPassword("Enter encryption password: ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read password: %w", err)
 	}
 
 	hexPayload, err := b.encrypt(helper.DeriveKey(password), plaintext)
@@ -137,7 +137,7 @@ func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 
 	password, err := helper.ReadPassword("Enter decryption password: ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read password: %w", err)
 	}
 
 	plaintext, err := b.decrypt(helper.DeriveKey(password), hexPayload)

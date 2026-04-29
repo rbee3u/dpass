@@ -5,31 +5,23 @@ import (
 	"testing"
 )
 
-func StubPasswordDependenciesForTest(
-	t *testing.T,
-	isTerminal func(int) bool,
-	readPassword func(int) ([]byte, error),
-	open func() (*os.File, error),
-) {
-	t.Helper()
+func StubIsNotTerminal(t *testing.T, double func(int) bool) {
+	Stub(t, &isNotTerminal, double)
+}
 
-	oldIsTerminal := termIsTerminal
-	oldReadPassword := termReadPassword
-	oldOpenTerminal := openTerminal
+func StubOpenTerminal(t *testing.T, double func() (*os.File, error)) {
+	Stub(t, &openTerminal, double)
+}
 
-	if isTerminal != nil {
-		termIsTerminal = isTerminal
-	}
-	if readPassword != nil {
-		termReadPassword = readPassword
-	}
-	if open != nil {
-		openTerminal = open
-	}
+func StubCloseTerminal(t *testing.T, double func(*os.File) error) {
+	Stub(t, &closeTerminal, double)
+}
 
-	t.Cleanup(func() {
-		termIsTerminal = oldIsTerminal
-		termReadPassword = oldReadPassword
-		openTerminal = oldOpenTerminal
-	})
+func StubReadPassword(t *testing.T, double func(int) ([]byte, error)) {
+	Stub(t, &readPassword, double)
+}
+
+func Stub[T any](t *testing.T, target *T, double T) {
+	double, *target = *target, double
+	t.Cleanup(func() { *target = double })
 }

@@ -4,13 +4,13 @@ package solana
 import (
 	"crypto/ed25519"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/rbee3u/dpass/pkg/base58"
 	"github.com/rbee3u/dpass/pkg/bip3x"
-	"github.com/rbee3u/dpass/pkg/helper"
 )
 
 // Derivation constants, optional path sentinels, and output mode for the Solana command.
@@ -101,12 +101,12 @@ func (b *backend) checkArguments() error {
 
 // runE reads a mnemonic and prints a Solana secret or public key in Base58.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
-	mnemonic, err := helper.ReadMnemonic()
+	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
 
-	result, err := b.getResult(mnemonic)
+	result, err := b.getResult(string(mnemonic))
 	if err != nil {
 		return err
 	}
