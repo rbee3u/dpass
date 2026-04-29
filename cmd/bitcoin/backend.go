@@ -89,7 +89,7 @@ func backendDefault() *backend {
 
 // NewCmd reads a mnemonic from stdin and prints a derived address or WIF.
 func NewCmd() *cobra.Command {
-	backend := backendDefault()
+	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "bitcoin",
 		Short: "Derive a Bitcoin address or private key from a mnemonic",
@@ -97,22 +97,21 @@ func NewCmd() *cobra.Command {
 			"  dpass mnemonic | dpass bitcoin --network testnet3 --purpose 49 --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass bitcoin --secret",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&backend.purpose, "purpose", purposeDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&b.purpose, "purpose", purposeDefault, fmt.Sprintf(
 		"BIP purpose: one of %d (legacy P2PKH) / %d (nested SegWit) / %d (native SegWit)",
 		purpose44, purpose49, purpose84))
-	cmd.Flags().StringVar(&backend.network, "network", networkDefault, fmt.Sprintf(
+	cmd.Flags().StringVar(&b.network, "network", networkDefault, fmt.Sprintf(
 		"Bitcoin network: one of %s/%s/%s/%s",
 		networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet))
-	cmd.Flags().Uint32Var(&backend.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&backend.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, "BIP44 address index")
-	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault,
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
+	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
 		"output private key (WIF) instead of address")
-	cmd.Flags().BoolVar(&backend.decompress, "decompress", decompressDefault,
+	cmd.Flags().BoolVar(&b.decompress, "decompress", decompressDefault,
 		"use an uncompressed public key (legacy purpose 44 only)")
-
 	return cmd
 }
 
@@ -129,27 +128,21 @@ func (b *backend) checkArguments() error {
 	if _, err := b.resolvePurpose(); err != nil {
 		return err
 	}
-
 	if _, err := b.resolveNetwork(); err != nil {
 		return err
 	}
-
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
-
 	if b.change >= bip3x.FirstHardenedChild {
 		return invalidChangeError{Got: b.change}
 	}
-
 	if b.index >= bip3x.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
 	}
-
 	if b.decompress && b.purpose != purpose44 {
 		return invalidDecompressPurposeError{Purpose: b.purpose}
 	}
-
 	return nil
 }
 
@@ -219,16 +212,13 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
-
 	result, err := b.getResult(string(mnemonic))
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)
 	}
-
 	return nil
 }
 
@@ -237,22 +227,18 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkArguments(); err != nil {
 		return "", err
 	}
-
 	convert, err := b.resolvePurpose()
 	if err != nil {
 		return "", err
 	}
-
 	network, err := b.resolveNetwork()
 	if err != nil {
 		return "", err
 	}
-
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
-
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
 		b.purpose + bip3x.FirstHardenedChild,
 		network.coin + bip3x.FirstHardenedChild,
@@ -263,13 +249,10 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}
-
 	if b.secret {
 		return b.skToWIF(sk, network), nil
 	}
-
 	x, y := secp256k1.S256().ScalarBaseMult(sk)
-
 	return b.pkToAddress(x, y, network, convert)
 }
 
@@ -279,9 +262,7 @@ func (b *backend) skToWIF(sk []byte, network networkConfig) string {
 	if !b.decompress {
 		data = append(data, 1)
 	}
-
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-
 	return base58.Encode(slices.Concat(data, digest))
 }
 
@@ -303,9 +284,7 @@ func (b *backend) pkToAddress(
 		x.FillBytes(data[1:33])
 		y.FillBytes(data[33:65])
 	}
-
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
-
 	return convert(pkHash, network)
 }
 
@@ -313,7 +292,6 @@ func (b *backend) pkToAddress(
 func pkHashToAddress44(pkHash []byte, network networkConfig) (string, error) {
 	data := slices.Concat([]byte{network.magicPubKeyHash}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
@@ -323,7 +301,6 @@ func pkHashToAddress49(pkHash []byte, network networkConfig) (string, error) {
 	data := slices.Concat([]byte{network.magicScriptHash},
 		hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
@@ -333,6 +310,5 @@ func pkHashToAddress84(pkHash []byte, network networkConfig) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to encode bech32 address: %w", err)
 	}
-
 	return address, nil
 }

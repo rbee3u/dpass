@@ -57,7 +57,7 @@ func backendDefault() *backend {
 
 // NewCmd reads a mnemonic from stdin and prints a Base58 secret key or public key.
 func NewCmd() *cobra.Command {
-	backend := backendDefault()
+	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "solana",
 		Short: "Derive a Solana address or private key from a mnemonic",
@@ -65,16 +65,15 @@ func NewCmd() *cobra.Command {
 			"  dpass mnemonic | dpass solana --change -1 --index -1\n" +
 			"  dpass mnemonic | dpass solana --secret",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&backend.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Int32Var(&backend.change, "change", changeDefault, fmt.Sprintf(
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
+	cmd.Flags().Int32Var(&b.change, "change", changeDefault, fmt.Sprintf(
 		"BIP44 change segment (set to %d to omit change and index)", changeIgnore))
-	cmd.Flags().Int32Var(&backend.index, "index", indexDefault, fmt.Sprintf(
+	cmd.Flags().Int32Var(&b.index, "index", indexDefault, fmt.Sprintf(
 		"BIP44 address index (set to %d to omit this segment)", indexIgnore))
-	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault,
+	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
 		"output private key (Base58 keypair) instead of address")
-
 	return cmd
 }
 
@@ -83,19 +82,15 @@ func (b *backend) checkArguments() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
-
 	if b.change < changeIgnore {
 		return invalidChangeError{Got: b.change}
 	}
-
 	if b.index < indexIgnore {
 		return invalidIndexError{Got: b.index}
 	}
-
 	if b.change == changeIgnore && b.index != indexIgnore {
 		return invalidIndexError{Got: b.index, RequireIgnore: true}
 	}
-
 	return nil
 }
 
@@ -123,12 +118,10 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkArguments(); err != nil {
 		return "", err
 	}
-
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
-
 	path := []uint32{
 		purposeDefault + bip3x.FirstHardenedChild,
 		coinDefault + bip3x.FirstHardenedChild,
@@ -137,20 +130,16 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if b.change != changeIgnore {
 		path = append(path, uint32(b.change)+bip3x.FirstHardenedChild)
 	}
-
 	if b.index != indexIgnore {
 		path = append(path, uint32(b.index)+bip3x.FirstHardenedChild)
 	}
-
 	sk, err := bip3x.Ed25519DeriveSk(seed, path)
 	if err != nil {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}
-
 	privateKey := ed25519.NewKeyFromSeed(sk)
 	if b.secret {
 		return base58.Encode(privateKey), nil
 	}
-
 	return base58.Encode(privateKey[ed25519.SeedSize:]), nil
 }

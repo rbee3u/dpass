@@ -23,19 +23,18 @@ func backendDefault() *backend {
 
 // NewCmd generates random entropy and prints a BIP-39 mnemonic to stdout.
 func NewCmd() *cobra.Command {
-	backend := backendDefault()
+	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "mnemonic",
 		Short: "Generate a random BIP-39 mnemonic",
 		Example: "  dpass mnemonic\n" +
 			"  dpass mnemonic --size 128",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-	cmd.Flags().IntVarP(&backend.size, "size", "s", bip3x.EntropyBitsMax, fmt.Sprintf(
+	cmd.Flags().IntVarP(&b.size, "size", "s", bip3x.EntropyBitsMax, fmt.Sprintf(
 		"entropy size in bits: multiple of %d within [%d, %d]",
 		bip3x.EntropyBitsStep, bip3x.EntropyBitsMin, bip3x.EntropyBitsMax))
-
 	return cmd
 }
 
@@ -45,11 +44,9 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write mnemonic: %w", err)
 	}
-
 	return nil
 }
 
@@ -59,11 +56,9 @@ func (b *backend) getResult() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random entropy: %w", err)
 	}
-
 	mnemonic, err := bip3x.EntropyToMnemonic(entropy)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert entropy to mnemonic: %w", err)
 	}
-
 	return mnemonic, nil
 }

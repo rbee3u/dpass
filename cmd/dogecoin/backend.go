@@ -56,7 +56,7 @@ func backendDefault() *backend {
 
 // NewCmd reads a mnemonic from stdin and prints a Dogecoin address or WIF.
 func NewCmd() *cobra.Command {
-	backend := backendDefault()
+	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "dogecoin",
 		Short: "Derive a Dogecoin address or private key from a mnemonic",
@@ -64,14 +64,13 @@ func NewCmd() *cobra.Command {
 			"  dpass mnemonic | dpass dogecoin --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass dogecoin --secret",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&backend.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&backend.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&backend.index, "index", indexDefault, "BIP44 address index")
-	cmd.Flags().BoolVar(&backend.secret, "secret", secretDefault,
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
+	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
 		"output private key (WIF) instead of address")
-
 	return cmd
 }
 
@@ -80,15 +79,12 @@ func (b *backend) checkArguments() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
-
 	if b.change >= bip3x.FirstHardenedChild {
 		return invalidChangeError{Got: b.change}
 	}
-
 	if b.index >= bip3x.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
 	}
-
 	return nil
 }
 
@@ -98,16 +94,13 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
-
 	result, err := b.getResult(string(mnemonic))
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)
 	}
-
 	return nil
 }
 
@@ -116,12 +109,10 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkArguments(); err != nil {
 		return "", err
 	}
-
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
-
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
 		purposeDefault + bip3x.FirstHardenedChild,
 		coinDefault + bip3x.FirstHardenedChild,
@@ -132,11 +123,9 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}
-
 	if b.secret {
 		return skToWIF(sk), nil
 	}
-
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
@@ -144,7 +133,6 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 func skToWIF(sk []byte) string {
 	data := slices.Concat([]byte{0x9e}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-
 	return base58.Encode(slices.Concat(data, digest))
 }
 
@@ -155,7 +143,6 @@ func pkToAddress(x, y *big.Int) string {
 	x.FillBytes(data[1:33])
 	data[0] += byte(y.Bit(0))
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
-
 	return pkHashToAddress44(pkHash)
 }
 
@@ -163,6 +150,5 @@ func pkToAddress(x, y *big.Int) string {
 func pkHashToAddress44(pkHash []byte) string {
 	data := slices.Concat([]byte{0x1e}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
-
 	return base58.Encode(slices.Concat(data, digest))
 }

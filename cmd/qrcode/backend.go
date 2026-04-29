@@ -59,22 +59,21 @@ func backendDefault() *backend {
 
 // NewCmd encodes stdin as a QR symbol and writes terminal graphics to stdout.
 func NewCmd() *cobra.Command {
-	backend := backendDefault()
+	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "qrcode",
 		Short: "Render stdin as a terminal QR code",
 		Example: "  printf 'https://example.com' | dpass qrcode\n" +
 			"  printf 'hello' | dpass qrcode --level H --swap",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-	cmd.Flags().StringVarP(&backend.level, "level", "l", levelDefault, fmt.Sprintf(
+	cmd.Flags().StringVarP(&b.level, "level", "l", levelDefault, fmt.Sprintf(
 		"QR error correction level: one of %s/%s/%s/%s", levelL, levelM, levelQ, levelH))
-	cmd.Flags().IntVarP(&backend.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
+	cmd.Flags().IntVarP(&b.quiet, "quiet", "q", quietDefault, fmt.Sprintf(
 		"quiet zone size in modules within [%d, %d]", quietMin, quietMax))
-	cmd.Flags().BoolVarP(&backend.swap, "swap", "s", swapDefault,
+	cmd.Flags().BoolVarP(&b.swap, "swap", "s", swapDefault,
 		"invert terminal colors")
-
 	return cmd
 }
 
@@ -84,18 +83,14 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read text: %w", err)
 	}
-
 	textString := string(text)
-
 	result, err := b.getResult(textString)
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.Write(result); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)
 	}
-
 	return nil
 }
 
@@ -104,14 +99,11 @@ func (b *backend) getResult(text string) ([]byte, error) {
 	if err := b.checkArguments(text); err != nil {
 		return nil, err
 	}
-
 	code, err := qr.Encode(text, b.levelInt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode text: %w", err)
 	}
-
 	var result []byte
-
 	for y := range b.quiet + code.Size + b.quiet {
 		for x := range b.quiet + code.Size + b.quiet {
 			if code.Black(x-b.quiet, y-b.quiet) != b.swap {
@@ -120,10 +112,8 @@ func (b *backend) getResult(text string) ([]byte, error) {
 				result = append(result, "\u001B[47m  "...)
 			}
 		}
-
 		result = append(result, "\u001B[0m\n"...)
 	}
-
 	return result, nil
 }
 

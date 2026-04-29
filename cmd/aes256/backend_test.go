@@ -32,7 +32,6 @@ func TestBackend(t *testing.T) {
 			plaintext: []byte("_LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLong"),
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			eb := encryptBackendDefault()
@@ -81,7 +80,6 @@ func TestEncryptBackendErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			eb := encryptBackendDefault()
@@ -143,7 +141,6 @@ func TestDecryptBackendErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := decryptBackendDefault()

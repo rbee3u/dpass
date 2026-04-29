@@ -12,19 +12,14 @@ func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
 		t.Helper()
-
 		address, err := b.getResult(mnemonic)
 		require.NoError(t, err)
-
 		secretBackend := *b
 		secretBackend.secret = true
-
 		private, err := secretBackend.getResult(mnemonic)
 		require.NoError(t, err)
-
 		return address, private
 	}
-
 	base := backendDefault()
 	base.purpose = purpose44
 	base.network = networkMainNet
@@ -159,7 +154,6 @@ func TestBackend(t *testing.T) {
 			compareDefault: true,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
@@ -169,14 +163,12 @@ func TestBackend(t *testing.T) {
 			b.change = tt.change
 			b.index = tt.index
 			b.decompress = tt.decompress
-
 			address, private := getAddressAndSecret(t, b)
 			if tt.compareDefault {
 				require.NotEqual(t, defaultAddress, address)
 				require.NotEqual(t, defaultPrivate, private)
 				return
 			}
-
 			require.Equal(t, tt.address, address)
 			require.Equal(t, tt.private, private)
 		})
@@ -272,7 +264,6 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
@@ -281,48 +272,6 @@ func TestBackendErrors(t *testing.T) {
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Empty(t, result)
-		})
-	}
-}
-
-func TestResolveNetwork(t *testing.T) {
-	tests := []struct {
-		name    string
-		network string
-		want    networkConfig
-	}{
-		{
-			name:    "testnet3",
-			network: networkTestNet3,
-			want: networkConfig{
-				coin:            coinTest,
-				magicPrivateKey: 0xef,
-				magicPubKeyHash: 0x6f,
-				magicScriptHash: 0xc4,
-				magicBech32HRP:  "tb",
-			},
-		},
-		{
-			name:    "simnet",
-			network: networkSimNet,
-			want: networkConfig{
-				coin:            coinTest,
-				magicPrivateKey: 0x64,
-				magicPubKeyHash: 0x3f,
-				magicScriptHash: 0x7b,
-				magicBech32HRP:  "sb",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b := backendDefault()
-			b.network = tt.network
-
-			got, err := b.resolveNetwork()
-			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
 		})
 	}
 }

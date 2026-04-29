@@ -39,16 +39,15 @@ func encryptBackendDefault() *encryptBackend {
 
 // NewCmdEncrypt reads plaintext from stdin and writes hex payload to stdout.
 func NewCmdEncrypt() *cobra.Command {
-	backend := encryptBackendDefault()
+	b := encryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "encrypt",
 		Short: "Encrypt plaintext from stdin with AES-256-GCM and write a hex payload",
 		Example: "  printf 'hello' | dpass encrypt\n" +
 			"  cat secret.txt | dpass encrypt",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-
 	return cmd
 }
 
@@ -58,21 +57,17 @@ func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read plaintext: %w", err)
 	}
-
 	password, err := helper.ReadPassword("Enter encryption password: ")
 	if err != nil {
 		return fmt.Errorf("failed to read password: %w", err)
 	}
-
 	hexPayload, err := b.encrypt(helper.DeriveKey(password), plaintext)
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.Write(hexPayload); err != nil {
 		return fmt.Errorf("failed to write hex payload: %w", err)
 	}
-
 	return nil
 }
 
@@ -83,23 +78,18 @@ func (b *encryptBackend) encrypt(key, plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
-
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES-GCM AEAD: %w", err)
 	}
-
 	nonceSize, tagSize := aead.NonceSize(), aead.Overhead()
-
 	payload := make([]byte, nonceSize, nonceSize+len(plaintext)+tagSize)
 	if _, err := io.ReadFull(b.nonceReader, payload); err != nil {
 		return nil, fmt.Errorf("failed to read nonce: %w", err)
 	}
-
 	payload = aead.Seal(payload, payload, plaintext, nil)
 	hexPayload := make([]byte, hex.EncodedLen(len(payload)))
 	hex.Encode(hexPayload, payload)
-
 	return hexPayload, nil
 }
 
@@ -113,16 +103,15 @@ func decryptBackendDefault() *decryptBackend {
 
 // NewCmdDecrypt reads hex payload from stdin and writes plaintext to stdout.
 func NewCmdDecrypt() *cobra.Command {
-	backend := decryptBackendDefault()
+	b := decryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "decrypt",
 		Short: "Decrypt an AES-256-GCM hex payload from stdin and write plaintext",
 		Example: "  printf '0123abcd' | dpass decrypt\n" +
 			"  cat payload.hex | dpass decrypt",
 		Args: cobra.NoArgs,
-		RunE: backend.runE,
+		RunE: b.runE,
 	}
-
 	return cmd
 }
 
@@ -132,23 +121,18 @@ func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read hex payload: %w", err)
 	}
-
 	hexPayload = bytes.TrimSpace(hexPayload)
-
 	password, err := helper.ReadPassword("Enter decryption password: ")
 	if err != nil {
 		return fmt.Errorf("failed to read password: %w", err)
 	}
-
 	plaintext, err := b.decrypt(helper.DeriveKey(password), hexPayload)
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.Write(plaintext); err != nil {
 		return fmt.Errorf("failed to write plaintext: %w", err)
 	}
-
 	return nil
 }
 
@@ -159,27 +143,21 @@ func (b *decryptBackend) decrypt(key, hexPayload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
-
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES-GCM AEAD: %w", err)
 	}
-
 	nonceSize, tagSize := aead.NonceSize(), aead.Overhead()
-
 	payload := make([]byte, hex.DecodedLen(len(hexPayload)))
 	if _, err := hex.Decode(payload, hexPayload); err != nil {
 		return nil, fmt.Errorf("failed to decode payload: %w", err)
 	}
-
 	if len(payload) < nonceSize+tagSize {
 		return nil, invalidPayloadLengthError{Got: len(payload), Min: nonceSize + tagSize}
 	}
-
 	plaintext, err := aead.Open(nil, payload[:nonceSize], payload[nonceSize:], nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt (wrong password or corrupted payload): %w", err)
 	}
-
 	return plaintext, nil
 }

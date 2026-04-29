@@ -12,19 +12,14 @@ func TestBackend(t *testing.T) {
 	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
 		t.Helper()
-
 		address, err := b.getResult(mnemonic)
 		require.NoError(t, err)
-
 		secretBackend := *b
 		secretBackend.secret = true
-
 		private, err := secretBackend.getResult(mnemonic)
 		require.NoError(t, err)
-
 		return address, private
 	}
-
 	defaultAddress, defaultPrivate := getAddressAndSecret(t, backendDefault())
 	tests := []struct {
 		name           string
@@ -65,21 +60,18 @@ func TestBackend(t *testing.T) {
 			compareDefault: true,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
 			b.account = tt.account
 			b.change = tt.change
 			b.index = tt.index
-
 			address, private := getAddressAndSecret(t, b)
 			if tt.compareDefault {
 				require.NotEqual(t, defaultAddress, address)
 				require.NotEqual(t, defaultPrivate, private)
 				return
 			}
-
 			require.Equal(t, tt.address, address)
 			require.Equal(t, tt.private, private)
 		})
@@ -141,7 +133,6 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()

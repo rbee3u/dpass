@@ -31,16 +31,13 @@ func TestBackend(t *testing.T) {
 			wordCount: 15,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
 			b.size = tt.size
-
 			result, err := b.getResult()
 			require.NoError(t, err)
 			require.Len(t, strings.Fields(result), tt.wordCount)
-
 			_, err = bip3x.MnemonicToSeed(result, "")
 			require.NoError(t, err)
 		})
@@ -90,12 +87,10 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
 			tt.setup(b)
-
 			result, err := b.getResult()
 			require.Error(t, err)
 			tt.requireErr(t, err)
