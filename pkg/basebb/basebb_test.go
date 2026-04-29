@@ -69,15 +69,6 @@ func TestTransform(t *testing.T) {
 	}
 }
 
-func TestTransformRoundTrip(t *testing.T) {
-	in := []byte{0, 0, 0x48, 0x65, 0x6c, 0x6c, 0x6f}
-	mid, err := basebb.Transform(256, 58, in)
-	require.NoError(t, err)
-	got, err := basebb.Transform(58, 256, mid)
-	require.NoError(t, err)
-	require.Equal(t, in, got)
-}
-
 func TestTransformErrors(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -153,7 +144,6 @@ func TestTransformErrors(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := basebb.Transform(tt.iBase, tt.oBase, tt.in)

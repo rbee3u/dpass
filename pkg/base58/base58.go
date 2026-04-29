@@ -42,7 +42,6 @@ var (
 	EncodeTransformer = basebb.MustNewTransformer(IBase, OBase)
 	// DecodeTransformer converts Base58 digit indices back to bytes.
 	DecodeTransformer = basebb.MustNewTransformer(OBase, IBase)
-
 	// BitcoinEncoding is the Bitcoin-style Base58 alphabet (excludes 0/O/I/l).
 	BitcoinEncoding = MustNewEncoding("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 	// FlickrEncoding swaps letter case for the same 58 symbols (Flickr/Base58 variant).
@@ -73,7 +72,6 @@ func MustNewEncoding(alphabet string) *Encoding {
 	if err != nil {
 		panic(err)
 	}
-
 	return encoding
 }
 
@@ -82,18 +80,14 @@ func NewEncoding(alphabet string) (*Encoding, error) {
 	if size := len(alphabet); size != int(OBase) {
 		return nil, InvalidAlphabetError{Alphabet: alphabet}
 	}
-
 	encoding := &Encoding{encode: alphabet}
-
 	encoding.decode = bytes.Repeat([]byte{255}, int(IBase))
 	for i := 0; i < len(alphabet); i++ {
 		if encoding.decode[alphabet[i]] != 255 {
 			return nil, InvalidAlphabetError{Alphabet: alphabet}
 		}
-
 		encoding.decode[alphabet[i]] = byte(i)
 	}
-
 	return encoding, nil
 }
 
@@ -103,11 +97,9 @@ func (e *Encoding) Encode(in []byte) string {
 	if err != nil {
 		panic(err)
 	}
-
 	for i := range out {
 		out[i] = e.encode[out[i]]
 	}
-
 	return string(out)
 }
 
@@ -118,14 +110,11 @@ func (e *Encoding) Decode(_in string) ([]byte, error) {
 		if e.decode[in[i]] == 255 {
 			return nil, InvalidCharError{Char: in[i]}
 		}
-
 		in[i] = e.decode[in[i]]
 	}
-
 	out, err := DecodeTransformer.Transform(in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform: %w", err)
 	}
-
 	return out, nil
 }

@@ -165,7 +165,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 
 // encodeSecretKey Bech32-encodes the 32-byte seed with scheme tag suiprivkey (flag byte 0).
 func encodeSecretKey(sk []byte) (string, error) {
-	key, err := bech32.EncodeChecked("suiprivkey", nil, slices.Concat([]byte{0}, sk))
+	key, err := bech32.Encode("suiprivkey", nil, slices.Concat([]byte{0}, sk))
 	if err != nil {
 		return "", fmt.Errorf("failed to encode suiprivkey: %w", err)
 	}

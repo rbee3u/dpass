@@ -329,7 +329,7 @@ func pkHashToAddress49(pkHash []byte, network networkConfig) (string, error) {
 
 // pkHashToAddress84 Bech32-encodes witness version 0 with the pubkey hash (BIP84).
 func pkHashToAddress84(pkHash []byte, network networkConfig) (string, error) {
-	address, err := bech32.EncodeChecked(network.magicBech32HRP, []byte{0}, pkHash)
+	address, err := bech32.Encode(network.magicBech32HRP, []byte{0}, pkHash)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode bech32 address: %w", err)
 	}

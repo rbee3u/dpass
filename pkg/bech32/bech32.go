@@ -41,29 +41,18 @@ func (e InvalidDataValueError) Error() string {
 }
 
 // Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
-// vs is prepended to the payload as 5-bit values (e.g. witness version); in is the remaining data bits.
-// It panics if hrp, vs, or in contain values rejected by EncodeChecked.
-func Encode(hrp string, vs, in []byte) string {
-	out, err := EncodeChecked(hrp, vs, in)
-	if err != nil {
-		panic(err)
-	}
-
-	return out
-}
-
-// EncodeChecked returns a Bech32 string or an error when hrp/data are invalid.
-func EncodeChecked(hrp string, vs, in []byte) (string, error) {
+// vs is prepended to the payload as 5-bit values (for example, a witness version),
+// while in is repacked from bytes into 5-bit groups before the checksum is appended.
+// It returns an error when hrp or any 5-bit value is invalid.
+func Encode(hrp string, vs, in []byte) (string, error) {
 	if len(hrp) == 0 {
 		return "", EmptyHrpError{}
 	}
-
 	for i := range len(hrp) {
 		if hrp[i] < 33 || hrp[i] > 126 || ('A' <= hrp[i] && hrp[i] <= 'Z') {
 			return "", InvalidHrpCharError{Char: hrp[i]}
 		}
 	}
-
 	for i := range vs {
 		if vs[i] >= 32 {
 			return "", InvalidDataValueError{Part: "version", Offset: i, Value: vs[i]}
@@ -79,7 +68,6 @@ func EncodeChecked(hrp string, vs, in []byte) (string, error) {
 			remain &= (1 << shift) - 1
 		}
 	}
-
 	if shift > 0 {
 		vsin = append(vsin, byte(remain<<(5-shift)))
 	}
@@ -87,17 +75,14 @@ func EncodeChecked(hrp string, vs, in []byte) (string, error) {
 	data := make([]byte, 0, len(hrp)+1+len(vsin))
 	data = append(data, hrp...)
 	data = append(data, '1')
-
 	for i := range vsin {
 		if vsin[i] >= 32 {
 			return "", InvalidDataValueError{Part: "payload", Offset: i, Value: vsin[i]}
 		}
-
 		data = append(data, alphabet[vsin[i]])
 	}
 
 	polymod := uint32(1)
-
 	iterate := func(value uint32) {
 		polymod, value = ((polymod&0x1ffffff)<<5)^value, polymod
 		polymod ^= (1 & (value >> 25)) * 0x3b6a57b2
@@ -106,21 +91,16 @@ func EncodeChecked(hrp string, vs, in []byte) (string, error) {
 		polymod ^= (1 & (value >> 28)) * 0x3d4233dd
 		polymod ^= (1 & (value >> 29)) * 0x2a1462b3
 	}
-
 	for i := range len(hrp) {
 		iterate(uint32(hrp[i] >> 5))
 	}
-
 	iterate(0)
-
 	for i := range len(hrp) {
 		iterate(uint32(hrp[i] & 31))
 	}
-
 	for i := range vsin {
 		iterate(uint32(vsin[i]))
 	}
-
 	for range 6 {
 		iterate(0)
 	}

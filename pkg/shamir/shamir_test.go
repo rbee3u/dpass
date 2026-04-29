@@ -10,7 +10,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/shamir"
 )
 
-func TestSplitAndCombine(t *testing.T) {
+func TestSplitCombine(t *testing.T) {
 	tests := []struct {
 		name      string
 		secret    []byte

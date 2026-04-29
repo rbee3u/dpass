@@ -21,8 +21,7 @@ type InvalidBaseError struct {
 }
 
 func (e InvalidBaseError) Error() string {
-	return fmt.Sprintf("basebb: invalid base (got %d, must be within [%d, %d])",
-		e.Base, MinBase, MaxBase)
+	return fmt.Sprintf("basebb: invalid base (got %d, must be within [%d, %d])", e.Base, MinBase, MaxBase)
 }
 
 // InvalidCharError reports a digit byte >= iBase during Transform.
@@ -41,7 +40,6 @@ func Transform(iBase uint32, oBase uint32, in []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return transformer.Transform(in)
 }
 
@@ -61,7 +59,6 @@ func MustNewTransformer(iBase uint32, oBase uint32) *Transformer {
 	if err != nil {
 		panic(err)
 	}
-
 	return transformer
 }
 
@@ -70,13 +67,10 @@ func NewTransformer(iBase uint32, oBase uint32) (*Transformer, error) {
 	if iBase < MinBase || iBase > MaxBase {
 		return nil, InvalidBaseError{Base: iBase}
 	}
-
 	if oBase < MinBase || oBase > MaxBase {
 		return nil, InvalidBaseError{Base: oBase}
 	}
-
 	ioRatio := math.Log(float64(iBase)) / math.Log(float64(oBase))
-
 	return &Transformer{iBase: iBase, oBase: oBase, ratio: ioRatio}, nil
 }
 
@@ -86,23 +80,18 @@ func (t *Transformer) Transform(in []byte) ([]byte, error) {
 	for zeros < len(in) && in[zeros] == 0 {
 		zeros++
 	}
-
 	out := make([]byte, zeros+int(math.Ceil(float64(len(in)-zeros)*t.ratio))+9)
 	high1 := len(out)
-
 	for i := range in {
 		if uint32(in[i]) >= t.iBase {
 			return nil, InvalidCharError{Char: in[i]}
 		}
-
 		carry, index := uint32(in[i]), len(out)-1
 		for ; carry != 0 || index >= high1; index-- {
 			carry += uint32(out[index]) * t.iBase
 			carry, out[index] = carry/t.oBase, byte(carry%t.oBase)
 		}
-
 		high1 = index + 1
 	}
-
 	return out[high1-zeros:], nil
 }
