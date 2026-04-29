@@ -2,13 +2,11 @@ package bip3x
 
 import "testing"
 
-func StubHmacSha512ForTest(t *testing.T, fn func([]byte, []byte) ([]byte, []byte)) {
-	t.Helper()
+func StubHmacSha512(t *testing.T, double func([]byte, []byte) ([]byte, []byte)) {
+	Stub(t, &hmacSha512, double)
+}
 
-	old := hmacSha512
-	hmacSha512 = fn
-
-	t.Cleanup(func() {
-		hmacSha512 = old
-	})
+func Stub[T any](t *testing.T, target *T, double T) {
+	double, *target = *target, double
+	t.Cleanup(func() { *target = double })
 }

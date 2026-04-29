@@ -105,12 +105,10 @@ func CreateEntropyRandomly(entropySize int) ([]byte, error) {
 	if entropySize%EntropyBitsStep != 0 || entropySize < EntropyBitsMin || entropySize > EntropyBitsMax {
 		return nil, InvalidEntropyBitsError{Bits: entropySize}
 	}
-
 	entropy := make([]byte, entropySize/BitsPerByte)
 	if _, err := io.ReadFull(rand.Reader, entropy); err != nil {
 		return nil, err
 	}
-
 	return entropy, nil
 }
 
@@ -120,12 +118,9 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 	if entropyBits%EntropyBitsStep != 0 || entropyBits < EntropyBitsMin || entropyBits > EntropyBitsMax {
 		return "", InvalidEntropyBitsError{Bits: entropyBits}
 	}
-
 	digestBits := entropyBits / EntropyBitsStep
 	sentence := make([]string, 0, digestBits*SentenceBitsStep/BitsPerWord)
-
 	remain, shift := uint32(0), 0
-
 	for i := range entropy {
 		remain, shift = (remain<<BitsPerByte)|uint32(entropy[i]), shift+BitsPerByte
 		for shift >= BitsPerWord {
@@ -134,10 +129,8 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 			remain, shift = remain&((1<<reducedShift)-1), reducedShift
 		}
 	}
-
 	digest := uint32(hashx.Sha256Sum(entropy)[0] >> (BitsPerByte - digestBits))
 	sentence = append(sentence, value2word[(remain<<digestBits)|digest])
-
 	return strings.Join(sentence, " "), nil
 }
 
@@ -146,23 +139,18 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 // "mnemonic"+password as salt and 2048 iterations.
 func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 	sentence := strings.Fields(mnemonic)
-
 	sentenceBits := len(sentence) * BitsPerWord
 	if sentenceBits%SentenceBitsStep != 0 || sentenceBits < SentenceBitsMin || sentenceBits > SentenceBitsMax {
 		return nil, InvalidSentenceBitsError{Bits: sentenceBits}
 	}
-
 	digestBits := sentenceBits / SentenceBitsStep
 	entropy := make([]byte, 0, digestBits*EntropyBitsStep/BitsPerByte)
-
 	remain, shift := uint32(0), 0
-
 	for _, word := range sentence {
 		value, exist := word2value[word]
 		if !exist {
 			return nil, WordNotFoundError{Word: word}
 		}
-
 		remain, shift = (remain<<BitsPerWord)|value, shift+BitsPerWord
 		for shift > BitsPerByte {
 			reducedShift := shift - BitsPerByte
@@ -170,12 +158,9 @@ func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 			remain, shift = remain&((1<<reducedShift)-1), reducedShift
 		}
 	}
-
 	if digest := uint32(hashx.Sha256Sum(entropy)[0] >> (BitsPerByte - digestBits)); remain != digest {
 		return nil, DigestMismatchError{Got: remain, Want: digest}
 	}
-
 	salt := append([]byte("mnemonic"), password...)
-
 	return pbkdf2.Key([]byte(strings.Join(sentence, " ")), salt, 2048, 64, sha512.New), nil
 }
