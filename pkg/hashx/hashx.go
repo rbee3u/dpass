@@ -3,7 +3,6 @@ package hashx
 
 import (
 	"crypto/sha256"
-	"slices"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/ripemd160"
@@ -15,12 +14,6 @@ func Sha256Sum(data []byte) []byte {
 	hasher := sha256.New()
 	_, _ = hasher.Write(data)
 	return hasher.Sum(nil)
-}
-
-// TaggedSha256Sum returns SHA256(SHA256(tag) || SHA256(tag) || data).
-func TaggedSha256Sum(tag string, data []byte) []byte {
-	tagHash := Sha256Sum([]byte(tag))
-	return Sha256Sum(slices.Concat(tagHash, tagHash, data))
 }
 
 // Keccak256Sum returns the 32-byte Keccak-256 digest (Ethereum pre-SHA3 variant).

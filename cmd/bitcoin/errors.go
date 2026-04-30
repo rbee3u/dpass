@@ -19,7 +19,6 @@ func (e invalidPurposeError) Error() string {
 	for i, v := range e.Allowed {
 		values[i] = strconv.FormatUint(uint64(v), 10)
 	}
-
 	return fmt.Sprintf("invalid purpose (got %d, must be one of %s)", e.Got, strings.Join(values, " / "))
 }
 
@@ -48,13 +47,4 @@ type invalidIndexError struct {
 
 func (e invalidIndexError) Error() string {
 	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
-}
-
-// invalidDecompressPurposeError reports --decompress used with SegWit purposes.
-type invalidDecompressPurposeError struct {
-	Purpose uint32
-}
-
-func (e invalidDecompressPurposeError) Error() string {
-	return fmt.Sprintf("invalid decompress mode (purpose %d requires compressed public keys)", e.Purpose)
 }

@@ -50,8 +50,6 @@ const (
 	indexDefault = 0
 	// secretDefault prints an address instead of a WIF by default.
 	secretDefault = false
-	// decompressDefault keeps compressed-key encoding by default.
-	decompressDefault = false
 )
 
 // backend holds CLI flags that affect derivation and output encoding.
@@ -66,19 +64,16 @@ type backend struct {
 	index uint32
 	// secret requests WIF output instead of a payment address.
 	secret bool
-	// decompress uses an uncompressed pubkey when building the address hash or WIF.
-	decompress bool
 }
 
 // backendDefault returns CLI defaults matching Bitcoin mainnet and native SegWit.
 func backendDefault() *backend {
 	return &backend{
-		purpose:    purposeDefault,
-		account:    accountDefault,
-		change:     changeDefault,
-		index:      indexDefault,
-		secret:     secretDefault,
-		decompress: decompressDefault,
+		purpose: purposeDefault,
+		account: accountDefault,
+		change:  changeDefault,
+		index:   indexDefault,
+		secret:  secretDefault,
 	}
 }
 
@@ -102,8 +97,6 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
 		"output private key (WIF) instead of address")
-	cmd.Flags().BoolVar(&b.decompress, "decompress", decompressDefault,
-		"use an uncompressed public key (legacy purpose 44 only)")
 	return cmd
 }
 
@@ -120,9 +113,6 @@ func (b *backend) checkArguments() error {
 	}
 	if b.index >= bip3x.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
-	}
-	if b.decompress && b.purpose != purpose44 {
-		return invalidDecompressPurposeError{Purpose: b.purpose}
 	}
 	return nil
 }
@@ -225,33 +215,22 @@ func (b *backend) taprootResult(sk []byte) (string, error) {
 	return address, nil
 }
 
-// skToWIF encodes the secret with the Bitcoin mainnet prefix, optional compressed suffix, and Base58Check.
+// skToWIF encodes the secret with the Bitcoin mainnet compressed WIF payload and Base58Check.
 func (b *backend) skToWIF(sk []byte) string {
-	data := slices.Concat([]byte{magicPrivateKeyMainNet}, sk)
-	if !b.decompress {
-		data = append(data, 1)
-	}
+	data := slices.Concat([]byte{magicPrivateKeyMainNet}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest))
 }
 
-// pkToAddress hashes the compressed or uncompressed pubkey and encodes the result per purpose.
+// pkToAddress hashes the compressed pubkey and encodes the result per purpose.
 func (b *backend) pkToAddress(
 	x, y *big.Int,
 	convert func([]byte) (string, error),
 ) (string, error) {
-	var data []byte
-	if !b.decompress {
-		data = make([]byte, 33)
-		data[0] = 2
-		x.FillBytes(data[1:33])
-		data[0] += byte(y.Bit(0))
-	} else {
-		data = make([]byte, 65)
-		data[0] = 4
-		x.FillBytes(data[1:33])
-		y.FillBytes(data[33:65])
-	}
+	data := make([]byte, 33)
+	data[0] = 2
+	x.FillBytes(data[1:33])
+	data[0] += byte(y.Bit(0))
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
 	return convert(pkHash)
 }
@@ -299,7 +278,8 @@ func deriveTaprootKey(sk []byte) (taprootKey, error) {
 	internalKey := make([]byte, 32)
 	x.FillBytes(internalKey)
 
-	tweakBytes := hashx.TaggedSha256Sum("TapTweak", internalKey)
+	tagHash := hashx.Sha256Sum([]byte("TapTweak"))
+	tweakBytes := hashx.Sha256Sum(slices.Concat(tagHash, tagHash, internalKey))
 	tweak := new(big.Int).SetBytes(tweakBytes)
 	if tweak.Cmp(curve.N) >= 0 {
 		return taprootKey{}, errors.New("failed to tweak taproot key: tweak exceeds curve order")

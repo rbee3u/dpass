@@ -9,48 +9,78 @@ import (
 )
 
 func TestBackend(t *testing.T) {
-	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
-	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
-		t.Helper()
-		address, err := b.getResult(mnemonic)
-		require.NoError(t, err)
-		secretBackend := *b
-		secretBackend.secret = true
-		private, err := secretBackend.getResult(mnemonic)
-		require.NoError(t, err)
-		return address, private
-	}
-	defaultAddress, defaultPrivate := getAddressAndSecret(t, backendDefault())
+	const mnemonic = "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
-		name           string
-		account        uint32
-		change         uint32
-		index          uint32
-		address        string
-		private        string
-		compareDefault bool
+		name    string
+		account uint32
+		change  uint32
+		index   uint32
+		address string
+		private string
 	}{
 		{
-			name:    "index0",
+			name:    "m/44'/3'/0'/0/0",
+			account: 0,
+			change:  0,
 			index:   0,
 			address: "DDmog5ZadHMuQek9i3PMkpLQcPpBEPoy76",
 			private: "QQvj71926WQGUSPu5hiyHoMzTWDW479hQuNa2KMQdegYpVYotg57",
 		},
 		{
-			name:    "index9",
-			index:   9,
-			address: "DLzzpTjuHPbnL4MReKmHHyLtqhdTPYeUgi",
-			private: "QTL7FHjHVuu9uJvSefFY6yQK12yViWAESXFxgdroqBKqMByZDJy8",
+			name:    "m/44'/3'/0'/0/1",
+			account: 0,
+			change:  0,
+			index:   1,
+			address: "DTEz8RJkTpnCtbHW5S1x2j2mbB8baW4Gei",
+			private: "QQXvGsrMeiqRaDECtJbAhsbpEHcn2ZMuJv2o5jjhMtMEx1vnwnBJ",
 		},
 		{
-			name:           "account1 changes output",
-			account:        1,
-			compareDefault: true,
+			name:    "m/44'/3'/0'/1/0",
+			account: 0,
+			change:  1,
+			index:   0,
+			address: "DQFNKwgvPYY2uuQer2Yv9MvNdNSYuZc5tK",
+			private: "QSYiykrHvfjphx7DXYjzEoshP8NP6xVyMDjusDCvmJxj3AZyZQro",
 		},
 		{
-			name:           "change1 changes output",
-			change:         1,
-			compareDefault: true,
+			name:    "m/44'/3'/0'/1/1",
+			account: 0,
+			change:  1,
+			index:   1,
+			address: "DLMa4Twy4ZN6dJFHLvYzgcNveJ1Q2AGyUa",
+			private: "QU6dk7gJqBjDazDNzYZ99T6T76kKsUwsrUcuX44bfcW2qy8PjF8X",
+		},
+		{
+			name:    "m/44'/3'/1'/0/0",
+			account: 1,
+			change:  0,
+			index:   0,
+			address: "D9Ko359yhq3HVGu5sezVjsEyLLPreBZpNe",
+			private: "QPVdu87VjzGxovHZrZEPh5HaC6qxSdyu7FtyX6eKhQZksg82EX5H",
+		},
+		{
+			name:    "m/44'/3'/1'/0/1",
+			account: 1,
+			change:  0,
+			index:   1,
+			address: "DS7CFykcuJXxEufji2kDEWVTaEJv3yj9VG",
+			private: "QRQemAngqxwdgU5Dkb48u8ZUksRuFdMB9pT8tTewVr6o3uuLV2YM",
+		},
+		{
+			name:    "m/44'/3'/1'/1/0",
+			account: 1,
+			change:  1,
+			index:   0,
+			address: "DNMS4RcV6EHL6DpoNgs6fx5KRkj4HZKdVq",
+			private: "QSAxCc6QdVHR628RfQ4PmhAuketHyKUpih442FdauwkCCNhpWUaW",
+		},
+		{
+			name:    "m/44'/3'/1'/1/1",
+			account: 1,
+			change:  1,
+			index:   1,
+			address: "D9pjFrKTGjDpknrLp6p71Lns2FHpEmpcwB",
+			private: "QSczdFD5jXHJ48bFLC5sBBx9UDmbDvNYqeErrbmZqDZ9W8R5pCHE",
 		},
 	}
 	for _, tt := range tests {
@@ -59,20 +89,19 @@ func TestBackend(t *testing.T) {
 			b.account = tt.account
 			b.change = tt.change
 			b.index = tt.index
-			address, private := getAddressAndSecret(t, b)
-			if tt.compareDefault {
-				require.NotEqual(t, defaultAddress, address)
-				require.NotEqual(t, defaultPrivate, private)
-				return
-			}
+			address, err := b.getResult(mnemonic)
+			require.NoError(t, err)
 			require.Equal(t, tt.address, address)
+			b.secret = true
+			private, err := b.getResult(mnemonic)
+			require.NoError(t, err)
 			require.Equal(t, tt.private, private)
 		})
 	}
 }
 
 func TestBackendErrors(t *testing.T) {
-	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
+	const mnemonic = "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
 		name       string
 		setup      func(*backend)

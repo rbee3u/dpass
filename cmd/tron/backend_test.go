@@ -9,70 +9,61 @@ import (
 )
 
 func TestBackend(t *testing.T) {
-	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
-	getAddressAndSecret := func(t *testing.T, b *backend) (string, string) {
-		t.Helper()
-		address, err := b.getResult(mnemonic)
-		require.NoError(t, err)
-		secretBackend := *b
-		secretBackend.secret = true
-		private, err := secretBackend.getResult(mnemonic)
-		require.NoError(t, err)
-		return address, private
-	}
-	defaultAddress, defaultPrivate := getAddressAndSecret(t, backendDefault())
+	const mnemonic = "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
-		name           string
-		account        uint32
-		change         uint32
-		index          uint32
-		address        string
-		private        string
-		compareDefault bool
+		name    string
+		account uint32
+		index   uint32
+		address string
+		private string
 	}{
 		{
-			name:    "index0",
+			name:    "m/44'/195'/0'/0/0",
+			account: 0,
 			index:   0,
 			address: "TFT56sLfzr8z1VsHrjfWDPTvmmNKq2YsLf",
 			private: "0eca3714a60c1e0696a0b9414d427c71416dad7d65e78a7c36538fbc69e5ebf5",
 		},
 		{
-			name:    "index9",
-			index:   9,
-			address: "TWV9v9AruTYoM1BEpyQ4pkHgfiKRBnm1E6",
-			private: "af3c32cd9f88036c564f1de3cc407bb0e60942714e323201f2dc90a2c7ca1fd9",
+			name:    "m/44'/195'/0'/0/1",
+			account: 0,
+			index:   1,
+			address: "THScfgwhyZcb9JdwUAcdkL4fmTtRQgnX6J",
+			private: "8a17cdb6193826f51993d420e2910b21261af7da2c90a17c0572c7d5396baa38",
 		},
 		{
-			name:           "account1 changes output",
-			account:        1,
-			compareDefault: true,
+			name:    "m/44'/195'/1'/0/0",
+			account: 1,
+			index:   0,
+			address: "TWffzqGSZKmDfoJJNnLqKjYYmQYwv96bQs",
+			private: "589f84967d81a958dd8e00cce9e14c1aee1478586097a681eb3747aeeafc443e",
 		},
 		{
-			name:           "change1 changes output",
-			change:         1,
-			compareDefault: true,
+			name:    "m/44'/195'/1'/0/1",
+			account: 1,
+			index:   1,
+			address: "TTavreTH4YETr2teogjmZ9wF4gw9N9J29o",
+			private: "baa8f82632e2027ebdc7f8a2fa9cc06431d22a694f11ed65a1e6a9eb6108e7b6",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
 			b.account = tt.account
-			b.change = tt.change
 			b.index = tt.index
-			address, private := getAddressAndSecret(t, b)
-			if tt.compareDefault {
-				require.NotEqual(t, defaultAddress, address)
-				require.NotEqual(t, defaultPrivate, private)
-				return
-			}
+			address, err := b.getResult(mnemonic)
+			require.NoError(t, err)
 			require.Equal(t, tt.address, address)
+			b.secret = true
+			private, err := b.getResult(mnemonic)
+			require.NoError(t, err)
 			require.Equal(t, tt.private, private)
 		})
 	}
 }
 
 func TestBackendErrors(t *testing.T) {
-	mnemonic := "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
+	const mnemonic = "daughter very gossip boil void ghost that obtain crew retreat obey direct brain bulb grow edge shield join hotel genius concert gain later account"
 	tests := []struct {
 		name       string
 		setup      func(*backend)
