@@ -22,12 +22,10 @@ func TestBackend(t *testing.T) {
 	}
 	base := backendDefault()
 	base.purpose = purpose44
-	base.network = networkMainNet
 	defaultAddress, defaultPrivate := getAddressAndSecret(t, base)
 	tests := []struct {
 		name           string
 		purpose        uint32
-		network        string
 		account        uint32
 		change         uint32
 		index          uint32
@@ -39,7 +37,6 @@ func TestBackend(t *testing.T) {
 		{
 			name:    "purpose44 mainnet index0",
 			purpose: purpose44,
-			network: networkMainNet,
 			index:   0,
 			address: "1EtWjpCUf349JLZV5e4oTyg9EW8jk2wb9E",
 			private: "KzNh6kf7p7PBLB7FWxG6BmVerRSxR6Ui5SQNSL6bKWcSzQfxXvKG",
@@ -47,31 +44,13 @@ func TestBackend(t *testing.T) {
 		{
 			name:    "purpose44 mainnet index9",
 			purpose: purpose44,
-			network: networkMainNet,
 			index:   9,
 			address: "1PT2nbAHWE4iqpbH8FG7tcPGaK9wFmazjE",
 			private: "KwT8VzTg6TdXcc4DiQ254fHyHNtoYppbidm9m9k3DBV7BRX3MfkN",
 		},
 		{
-			name:    "purpose44 regtest index0",
-			purpose: purpose44,
-			network: networkRegressionNet,
-			index:   0,
-			address: "mqAQq4XcdEBmJJTZAG8ryV9zyNfhNmuNuS",
-			private: "cNLuYKhFv9hvTYfH6u65vchJWSvbEn2SY7ARDbUa37KAK9H1bqE7",
-		},
-		{
-			name:    "purpose44 regtest index9",
-			purpose: purpose44,
-			network: networkRegressionNet,
-			index:   9,
-			address: "mx8aSRQjd8bWHLdFYejYHhiJN1CebTUif1",
-			private: "cVeYXrqSB45DzYeurSgUYiNsFndTmj1WBZLa3hcWvRUCGd6FRGgt",
-		},
-		{
 			name:    "purpose49 mainnet index0",
 			purpose: purpose49,
-			network: networkMainNet,
 			index:   0,
 			address: "36o36tMKQu8maT6Z1e5hFqP53ePC3NAXRq",
 			private: "L2NjSH4S6KvANf9msxFcUCPnRe4k7HP1jBSMqtV3zHjJDnrYV6cY",
@@ -79,31 +58,13 @@ func TestBackend(t *testing.T) {
 		{
 			name:    "purpose49 mainnet index9",
 			purpose: purpose49,
-			network: networkMainNet,
 			index:   9,
 			address: "37wAuysvKfSs4gDgWUC9PF3JLkJGSPaccL",
 			private: "L4hNABeeKSSJU3RgkXarfmM1GBEU7YwegHZNqeB45FYk8eedCYtk",
 		},
 		{
-			name:    "purpose49 regtest index0",
-			purpose: purpose49,
-			network: networkRegressionNet,
-			index:   0,
-			address: "2N6zD84MQ5AJ5VjJ1TfcRDXa28VWRf7wa2H",
-			private: "cTzTfjLQ6QSYA2ewcXRF9bqHkfFsUVHCqaqten8sTsMD2Yg4MA8p",
-		},
-		{
-			name:    "purpose49 regtest index9",
-			purpose: purpose49,
-			network: networkRegressionNet,
-			index:   9,
-			address: "2N9Ltc6XYJw4n4dvRbNzmMzbk2x4BP4APrt",
-			private: "cSmhMGkmoDEsqG2DVYWYvHUCSChyHXa46nKcYyyWNUCT1kXMioBE",
-		},
-		{
 			name:    "purpose84 mainnet index0",
 			purpose: purpose84,
-			network: networkMainNet,
 			index:   0,
 			address: "bc1qpeft30lweh28g9yaq20h0mfdjensap49l98jft",
 			private: "L43KTUUsjTyZBN6Ach9LBPQiZf3RzdFGRR37ipve24uo8YVhEmgv",
@@ -111,46 +72,52 @@ func TestBackend(t *testing.T) {
 		{
 			name:    "purpose84 mainnet index9",
 			purpose: purpose84,
-			network: networkMainNet,
 			index:   9,
 			address: "bc1qqfglwyjxt6tq046r5g4r80sykv2a38n6g9avlg",
 			private: "KzobRPFXbur7FmAJXe2USrmrWXzfgCDXBXVwLshovYEU4hbnWVFn",
 		},
 		{
-			name:    "purpose84 regtest index0",
-			purpose: purpose84,
-			network: networkRegressionNet,
+			name:    "purpose86 mainnet index0",
+			purpose: purpose86,
 			index:   0,
-			address: "bcrt1q823gdstlg7zj9w2mhqnxuqrlyhnxtakkylxu8w",
-			private: "cVdY1HfnxVop9LcbKRRp7guofgQ2WTa6KsyEKejVzT2oAKmsbtM1",
+			address: "bc1p2k2y33zsuq50r0pmpkhe9fphmex35m5t8jes4paz09je9ukr8d6sntagnv",
+			private: "L4eRxo4DNJ6jsJc3QBrt3iEBopKXnWgWgG4xUpU2jjqS5P3akERs",
 		},
 		{
-			name:    "purpose84 regtest index9",
-			purpose: purpose84,
-			network: networkRegressionNet,
+			name:    "purpose86 mainnet index9",
+			purpose: purpose86,
 			index:   9,
-			address: "bcrt1qarc2clmmcj2gujhtrh5c3568v59nnjqsaj8z9t",
-			private: "cNKY7rQ158hNMNEadp3Bysdpj4hvhKiqUAr6NeRDWruFMNVHbig9",
+			address: "bc1pdxcpq67uxecpfxpmaudewnrcv9xr2n3pvzg0ymkfm9v89rc939qq9z35jq",
+			private: "L3vHcYWQcfFatLvMaJTkrBkbXfw9GeP9UbsPJCd6eiK3wy9KuGuC",
 		},
 		{
 			name:           "purpose44 mainnet account1 changes output",
 			purpose:        purpose44,
-			network:        networkMainNet,
 			account:        1,
 			compareDefault: true,
 		},
 		{
 			name:           "purpose44 mainnet change1 changes output",
 			purpose:        purpose44,
-			network:        networkMainNet,
 			change:         1,
 			compareDefault: true,
 		},
 		{
 			name:           "purpose44 mainnet decompress changes output",
 			purpose:        purpose44,
-			network:        networkMainNet,
 			decompress:     true,
+			compareDefault: true,
+		},
+		{
+			name:           "purpose86 mainnet account1 changes output",
+			purpose:        purpose86,
+			account:        1,
+			compareDefault: true,
+		},
+		{
+			name:           "purpose86 mainnet change1 changes output",
+			purpose:        purpose86,
+			change:         1,
 			compareDefault: true,
 		},
 	}
@@ -158,7 +125,6 @@ func TestBackend(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := backendDefault()
 			b.purpose = tt.purpose
-			b.network = tt.network
 			b.account = tt.account
 			b.change = tt.change
 			b.index = tt.index
@@ -191,19 +157,7 @@ func TestBackendErrors(t *testing.T) {
 				var target invalidPurposeError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, uint32(99), target.Got)
-				require.Equal(t, []uint32{purpose44, purpose49, purpose84}, target.Allowed)
-			},
-		},
-		{
-			name: "invalid network",
-			setup: func(b *backend) {
-				b.network = "fakenet"
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target invalidNetworkError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, "fakenet", target.Got)
-				require.Equal(t, []string{networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet}, target.Allowed)
+				require.Equal(t, []uint32{purpose44, purpose49, purpose84, purpose86}, target.Allowed)
 			},
 		},
 		{
@@ -261,6 +215,18 @@ func TestBackendErrors(t *testing.T) {
 				var target invalidDecompressPurposeError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, uint32(purpose84), target.Purpose)
+			},
+		},
+		{
+			name: "decompress on purpose86",
+			setup: func(b *backend) {
+				b.purpose = purpose86
+				b.decompress = true
+			},
+			requireErr: func(t *testing.T, err error) {
+				var target invalidDecompressPurposeError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, uint32(purpose86), target.Purpose)
 			},
 		},
 	}

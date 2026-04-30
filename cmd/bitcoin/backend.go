@@ -2,6 +2,7 @@
 package bitcoin
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -17,7 +18,7 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Purpose, network, and derivation defaults for the Bitcoin command.
+// Purpose and derivation defaults for the Bitcoin command.
 const (
 	// purposeDefault selects native SegWit derivation by default.
 	purposeDefault = purpose84
@@ -27,22 +28,19 @@ const (
 	purpose49 = 49
 	// purpose84 selects native SegWit P2WPKH derivation.
 	purpose84 = 84
+	// purpose86 selects Taproot P2TR derivation.
+	purpose86 = 86
 
-	// networkDefault selects Bitcoin mainnet by default.
-	networkDefault = networkMainNet
-	// networkMainNet selects Bitcoin mainnet address and WIF prefixes.
-	networkMainNet = "mainnet"
-	// networkRegressionNet selects Bitcoin regtest address and WIF prefixes.
-	networkRegressionNet = "regtest"
-	// networkTestNet3 selects Bitcoin testnet3 address and WIF prefixes.
-	networkTestNet3 = "testnet3"
-	// networkSimNet selects btcd-style simnet address and WIF prefixes.
-	networkSimNet = "simnet"
-
-	// coinMain is the BIP44 coin type for Bitcoin mainnet.
-	coinMain = 0
-	// coinTest is the BIP44 coin type shared by the configured Bitcoin test networks.
-	coinTest = 1
+	// coinDefault selects the BIP44 coin type for Bitcoin mainnet.
+	coinDefault = 0
+	// magicPrivateKeyMainNet prefixes mainnet WIF payloads.
+	magicPrivateKeyMainNet = 0x80
+	// magicPubKeyHashMainNet prefixes legacy P2PKH addresses.
+	magicPubKeyHashMainNet = 0x00
+	// magicScriptHashMainNet prefixes nested SegWit P2SH addresses.
+	magicScriptHashMainNet = 0x05
+	// bech32HRPMainNet is the HRP for native SegWit and Taproot addresses.
+	bech32HRPMainNet = "bc"
 
 	// accountDefault selects the first account.
 	accountDefault = 0
@@ -58,10 +56,8 @@ const (
 
 // backend holds CLI flags that affect derivation and output encoding.
 type backend struct {
-	// purpose selects BIP44 (44), nested SegWit (49), or native SegWit (84).
+	// purpose selects BIP44 (44), nested SegWit (49), native SegWit (84), or Taproot (86).
 	purpose uint32
-	// network selects chain parameters (mainnet, testnets, etc.).
-	network string
 	// account is the hardened account segment in the derivation path.
 	account uint32
 	// change is the first unhardened trailing path component.
@@ -78,7 +74,6 @@ type backend struct {
 func backendDefault() *backend {
 	return &backend{
 		purpose:    purposeDefault,
-		network:    networkDefault,
 		account:    accountDefault,
 		change:     changeDefault,
 		index:      indexDefault,
@@ -94,17 +89,14 @@ func NewCmd() *cobra.Command {
 		Use:   "bitcoin",
 		Short: "Derive a Bitcoin address or private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass bitcoin\n" +
-			"  dpass mnemonic | dpass bitcoin --network testnet3 --purpose 49 --account 1 --index 2\n" +
+			"  dpass mnemonic | dpass bitcoin --purpose 49 --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass bitcoin --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
 	cmd.Flags().Uint32Var(&b.purpose, "purpose", purposeDefault, fmt.Sprintf(
-		"BIP purpose: one of %d (legacy P2PKH) / %d (nested SegWit) / %d (native SegWit)",
-		purpose44, purpose49, purpose84))
-	cmd.Flags().StringVar(&b.network, "network", networkDefault, fmt.Sprintf(
-		"Bitcoin network: one of %s/%s/%s/%s",
-		networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet))
+		"BIP purpose: one of %d (legacy P2PKH) / %d (nested SegWit) / %d (native SegWit) / %d (Taproot BIP86)",
+		purpose44, purpose49, purpose84, purpose86))
 	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
 	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
 	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
@@ -115,20 +107,9 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
-type networkConfig struct {
-	coin            uint32
-	magicPrivateKey byte
-	magicPubKeyHash byte
-	magicScriptHash byte
-	magicBech32HRP  string
-}
-
 // checkArguments validates CLI flags without mutating backend state.
 func (b *backend) checkArguments() error {
-	if _, err := b.resolvePurpose(); err != nil {
-		return err
-	}
-	if _, err := b.resolveNetwork(); err != nil {
+	if err := b.checkPurpose(); err != nil {
 		return err
 	}
 	if b.account >= bip3x.FirstHardenedChild {
@@ -146,8 +127,25 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// resolvePurpose validates the selected purpose and returns the matching address encoder.
-func (b *backend) resolvePurpose() (func([]byte, networkConfig) (string, error), error) {
+// checkPurpose validates the selected BIP purpose.
+func (b *backend) checkPurpose() error {
+	switch b.purpose {
+	case purpose44:
+	case purpose49:
+	case purpose84:
+	case purpose86:
+		return nil
+	default:
+		return invalidPurposeError{
+			Got:     b.purpose,
+			Allowed: []uint32{purpose44, purpose49, purpose84, purpose86},
+		}
+	}
+	return nil
+}
+
+// resolveLegacyPurpose returns the legacy address encoder for non-Taproot purposes.
+func (b *backend) resolveLegacyPurpose() (func([]byte) (string, error), error) {
 	switch b.purpose {
 	case purpose44:
 		return pkHashToAddress44, nil
@@ -159,49 +157,6 @@ func (b *backend) resolvePurpose() (func([]byte, networkConfig) (string, error),
 		return nil, invalidPurposeError{
 			Got:     b.purpose,
 			Allowed: []uint32{purpose44, purpose49, purpose84},
-		}
-	}
-}
-
-// resolveNetwork validates the selected network and returns its encoding parameters.
-func (b *backend) resolveNetwork() (networkConfig, error) {
-	switch b.network {
-	case networkMainNet:
-		return networkConfig{
-			coin:            coinMain,
-			magicPrivateKey: 0x80,
-			magicPubKeyHash: 0x00,
-			magicScriptHash: 0x05,
-			magicBech32HRP:  "bc",
-		}, nil
-	case networkRegressionNet:
-		return networkConfig{
-			coin:            coinTest,
-			magicPrivateKey: 0xef,
-			magicPubKeyHash: 0x6f,
-			magicScriptHash: 0xc4,
-			magicBech32HRP:  "bcrt",
-		}, nil
-	case networkTestNet3:
-		return networkConfig{
-			coin:            coinTest,
-			magicPrivateKey: 0xef,
-			magicPubKeyHash: 0x6f,
-			magicScriptHash: 0xc4,
-			magicBech32HRP:  "tb",
-		}, nil
-	case networkSimNet:
-		return networkConfig{
-			coin:            coinTest,
-			magicPrivateKey: 0x64,
-			magicPubKeyHash: 0x3f,
-			magicScriptHash: 0x7b,
-			magicBech32HRP:  "sb",
-		}, nil
-	default:
-		return networkConfig{}, invalidNetworkError{
-			Got:     b.network,
-			Allowed: []string{networkMainNet, networkRegressionNet, networkTestNet3, networkSimNet},
 		}
 	}
 }
@@ -227,21 +182,13 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkArguments(); err != nil {
 		return "", err
 	}
-	convert, err := b.resolvePurpose()
-	if err != nil {
-		return "", err
-	}
-	network, err := b.resolveNetwork()
-	if err != nil {
-		return "", err
-	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
 		b.purpose + bip3x.FirstHardenedChild,
-		network.coin + bip3x.FirstHardenedChild,
+		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 		b.change,
 		b.index,
@@ -249,16 +196,38 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}
+	if b.purpose == purpose86 {
+		return b.taprootResult(sk)
+	}
+	convert, err := b.resolveLegacyPurpose()
+	if err != nil {
+		return "", err
+	}
 	if b.secret {
-		return b.skToWIF(sk, network), nil
+		return b.skToWIF(sk), nil
 	}
 	x, y := secp256k1.S256().ScalarBaseMult(sk)
-	return b.pkToAddress(x, y, network, convert)
+	return b.pkToAddress(x, y, convert)
 }
 
-// skToWIF encodes the secret with network prefix, optional compressed suffix, and Base58Check.
-func (b *backend) skToWIF(sk []byte, network networkConfig) string {
-	data := slices.Concat([]byte{network.magicPrivateKey}, sk)
+func (b *backend) taprootResult(sk []byte) (string, error) {
+	taprootKey, err := deriveTaprootKey(sk)
+	if err != nil {
+		return "", err
+	}
+	if b.secret {
+		return b.skToWIF(taprootKey.secret), nil
+	}
+	address, err := bech32.EncodeSegWit(bech32HRPMainNet, 1, taprootKey.outputKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode taproot address: %w", err)
+	}
+	return address, nil
+}
+
+// skToWIF encodes the secret with the Bitcoin mainnet prefix, optional compressed suffix, and Base58Check.
+func (b *backend) skToWIF(sk []byte) string {
+	data := slices.Concat([]byte{magicPrivateKeyMainNet}, sk)
 	if !b.decompress {
 		data = append(data, 1)
 	}
@@ -269,8 +238,7 @@ func (b *backend) skToWIF(sk []byte, network networkConfig) string {
 // pkToAddress hashes the compressed or uncompressed pubkey and encodes the result per purpose.
 func (b *backend) pkToAddress(
 	x, y *big.Int,
-	network networkConfig,
-	convert func([]byte, networkConfig) (string, error),
+	convert func([]byte) (string, error),
 ) (string, error) {
 	var data []byte
 	if !b.decompress {
@@ -285,30 +253,73 @@ func (b *backend) pkToAddress(
 		y.FillBytes(data[33:65])
 	}
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
-	return convert(pkHash, network)
+	return convert(pkHash)
 }
 
 // pkHashToAddress44 builds a P2PKH Base58Check address (BIP44 legacy).
-func pkHashToAddress44(pkHash []byte, network networkConfig) (string, error) {
-	data := slices.Concat([]byte{network.magicPubKeyHash}, pkHash)
+func pkHashToAddress44(pkHash []byte) (string, error) {
+	data := slices.Concat([]byte{magicPubKeyHashMainNet}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
 // pkHashToAddress49 wraps the pubkey hash in P2WPKH-in-P2SH and Base58Check-encodes it.
-func pkHashToAddress49(pkHash []byte, network networkConfig) (string, error) {
+func pkHashToAddress49(pkHash []byte) (string, error) {
 	pkScript := slices.Concat([]byte{0, 20}, pkHash)
-	data := slices.Concat([]byte{network.magicScriptHash},
-		hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
+	data := slices.Concat([]byte{magicScriptHashMainNet}, hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
 // pkHashToAddress84 Bech32-encodes witness version 0 with the pubkey hash (BIP84).
-func pkHashToAddress84(pkHash []byte, network networkConfig) (string, error) {
-	address, err := bech32.Encode(network.magicBech32HRP, []byte{0}, pkHash)
+func pkHashToAddress84(pkHash []byte) (string, error) {
+	address, err := bech32.EncodeSegWit(bech32HRPMainNet, 0, pkHash)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode bech32 address: %w", err)
 	}
 	return address, nil
+}
+
+type taprootKey struct {
+	secret    []byte
+	outputKey []byte
+}
+
+// deriveTaprootKey returns the BIP86 tweaked private key and output key.
+func deriveTaprootKey(sk []byte) (taprootKey, error) {
+	curve := secp256k1.S256()
+	d := new(big.Int).SetBytes(sk)
+	x, y := curve.ScalarBaseMult(sk)
+	if y.Bit(0) == 1 {
+		d.Sub(curve.N, d)
+		y.Sub(curve.P, y)
+		y.Mod(y, curve.P)
+	}
+
+	internalKey := make([]byte, 32)
+	x.FillBytes(internalKey)
+
+	tweakBytes := hashx.TaggedSha256Sum("TapTweak", internalKey)
+	tweak := new(big.Int).SetBytes(tweakBytes)
+	if tweak.Cmp(curve.N) >= 0 {
+		return taprootKey{}, errors.New("failed to tweak taproot key: tweak exceeds curve order")
+	}
+
+	tx, ty := curve.ScalarBaseMult(tweakBytes)
+	outputX, outputY := curve.Add(x, y, tx, ty)
+
+	secret := new(big.Int).Add(d, tweak)
+	secret.Mod(secret, curve.N)
+	if secret.Sign() == 0 {
+		return taprootKey{}, errors.New("failed to tweak taproot key: tweaked private key is zero")
+	}
+	if outputX.Sign() == 0 && outputY.Sign() == 0 {
+		return taprootKey{}, errors.New("failed to tweak taproot key: output key is point at infinity")
+	}
+
+	outputKey := make([]byte, 32)
+	outputX.FillBytes(outputKey)
+	secretBytes := make([]byte, 32)
+	secret.FillBytes(secretBytes)
+	return taprootKey{secret: secretBytes, outputKey: outputKey}, nil
 }

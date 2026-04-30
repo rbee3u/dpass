@@ -9,6 +9,11 @@ import (
 // alphabet is the Bech32 character set in value order (indices 0–31).
 const alphabet = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
+const (
+	bech32ChecksumConstant  = uint32(1)
+	bech32mChecksumConstant = uint32(0x2bc830a3)
+)
+
 // EmptyHrpError reports a missing human-readable part.
 type EmptyHrpError struct{}
 
@@ -40,11 +45,69 @@ func (e InvalidDataValueError) Error() string {
 	return fmt.Sprintf("bech32: invalid %s value at offset %d (got %d, must be <= 31)", e.Part, e.Offset, e.Value)
 }
 
+// InvalidWitnessVersionError reports a SegWit witness version outside the supported range.
+type InvalidWitnessVersionError struct {
+	Version byte
+}
+
+func (e InvalidWitnessVersionError) Error() string {
+	return fmt.Sprintf("bech32: invalid witness version %d (must be between 0 and 16)", e.Version)
+}
+
+// InvalidWitnessProgramLengthError reports a SegWit witness program with an unsupported size.
+type InvalidWitnessProgramLengthError struct {
+	Version byte
+	Length  int
+}
+
+func (e InvalidWitnessProgramLengthError) Error() string {
+	if e.Version == 0 {
+		return fmt.Sprintf(
+			"bech32: invalid witness program length %d for version %d (must be 20 or 32)",
+			e.Length, e.Version,
+		)
+	}
+	return fmt.Sprintf(
+		"bech32: invalid witness program length %d for version %d (must be between 2 and 40)",
+		e.Length, e.Version,
+	)
+}
+
 // Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
 // vs is prepended to the payload as 5-bit values (for example, a witness version),
 // while in is repacked from bytes into 5-bit groups before the checksum is appended.
 // It returns an error when hrp or any 5-bit value is invalid.
 func Encode(hrp string, vs, in []byte) (string, error) {
+	return encode(hrp, vs, in, bech32ChecksumConstant)
+}
+
+// EncodeSegWit returns a SegWit address using Bech32 for witness version 0
+// and Bech32m for witness versions 1 through 16.
+func EncodeSegWit(hrp string, witnessVersion byte, witnessProgram []byte) (string, error) {
+	if witnessVersion > 16 {
+		return "", InvalidWitnessVersionError{Version: witnessVersion}
+	}
+	if len(witnessProgram) < 2 || len(witnessProgram) > 40 {
+		return "", InvalidWitnessProgramLengthError{
+			Version: witnessVersion,
+			Length:  len(witnessProgram),
+		}
+	}
+	if witnessVersion == 0 && len(witnessProgram) != 20 && len(witnessProgram) != 32 {
+		return "", InvalidWitnessProgramLengthError{
+			Version: witnessVersion,
+			Length:  len(witnessProgram),
+		}
+	}
+
+	checksumConstant := bech32mChecksumConstant
+	if witnessVersion == 0 {
+		checksumConstant = bech32ChecksumConstant
+	}
+	return encode(hrp, []byte{witnessVersion}, witnessProgram, checksumConstant)
+}
+
+func encode(hrp string, vs, in []byte, checksumConstant uint32) (string, error) {
 	if len(hrp) == 0 {
 		return "", EmptyHrpError{}
 	}
@@ -104,9 +167,10 @@ func Encode(hrp string, vs, in []byte) (string, error) {
 	for range 6 {
 		iterate(0)
 	}
+	polymod ^= checksumConstant
 
 	return string(append(data,
 		alphabet[(polymod>>25)&31], alphabet[(polymod>>20)&31], alphabet[(polymod>>15)&31],
-		alphabet[(polymod>>10)&31], alphabet[(polymod>>5)&31], alphabet[(polymod^1)&31],
+		alphabet[(polymod>>10)&31], alphabet[(polymod>>5)&31], alphabet[polymod&31],
 	)), nil
 }

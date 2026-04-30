@@ -23,16 +23,6 @@ func (e invalidPurposeError) Error() string {
 	return fmt.Sprintf("invalid purpose (got %d, must be one of %s)", e.Got, strings.Join(values, " / "))
 }
 
-// invalidNetworkError reports a --network flag outside the accepted networks.
-type invalidNetworkError struct {
-	Got     string
-	Allowed []string
-}
-
-func (e invalidNetworkError) Error() string {
-	return fmt.Sprintf("invalid network (got %q, must be one of %s)", e.Got, strings.Join(e.Allowed, " / "))
-}
-
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
 type invalidAccountError struct {
 	Got uint32

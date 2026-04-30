@@ -73,6 +73,40 @@ func TestEncode(t *testing.T) {
 	}
 }
 
+func TestEncodeSegWit(t *testing.T) {
+	tests := []struct {
+		name    string
+		hrp     string
+		version byte
+		hexIn   string
+		out     string
+	}{
+		{
+			name:    "bc1 witness v0 p2wpkh",
+			hrp:     "bc",
+			version: 0,
+			hexIn:   "751e76e8199196d454941c45d1b3a323f1433bd6",
+			out:     "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+		},
+		{
+			name:    "bc1 witness v1 taproot",
+			hrp:     "bc",
+			version: 1,
+			hexIn:   "a60869f0dbcf1dc659c9cecbaf8050135ea9e8cdc487053f1dc6880949dc684c",
+			out:     "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in, err := hex.DecodeString(tt.hexIn)
+			require.NoError(t, err)
+			out, err := bech32.EncodeSegWit(tt.hrp, tt.version, in)
+			require.NoError(t, err)
+			require.Equal(t, tt.out, out)
+		})
+	}
+}
+
 func TestEncodeErrors(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -113,6 +147,72 @@ func TestEncodeErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := bech32.Encode(tt.hrp, tt.vs, tt.in)
+			require.Error(t, err)
+			tt.requireErr(t, err)
+			require.Empty(t, out)
+		})
+	}
+}
+
+func TestEncodeSegWitErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		hrp        string
+		version    byte
+		in         []byte
+		requireErr func(*testing.T, error)
+	}{
+		{
+			name:    "invalid witness version",
+			hrp:     "bc",
+			version: 17,
+			in:      []byte{0x01, 0x02},
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidWitnessVersionError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, byte(17), target.Version)
+			},
+		},
+		{
+			name:    "short witness program",
+			hrp:     "bc",
+			version: 1,
+			in:      []byte{0x01},
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidWitnessProgramLengthError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, byte(1), target.Version)
+				require.Equal(t, 1, target.Length)
+			},
+		},
+		{
+			name:    "long witness program",
+			hrp:     "bc",
+			version: 1,
+			in:      make([]byte, 41),
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidWitnessProgramLengthError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, byte(1), target.Version)
+				require.Equal(t, 41, target.Length)
+			},
+		},
+		{
+			name:    "invalid witness version 0 length",
+			hrp:     "bc",
+			version: 0,
+			in:      make([]byte, 10),
+			requireErr: func(t *testing.T, err error) {
+				var target bech32.InvalidWitnessProgramLengthError
+				require.ErrorAs(t, err, &target)
+				require.Equal(t, byte(0), target.Version)
+				require.Equal(t, 10, target.Length)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := bech32.EncodeSegWit(tt.hrp, tt.version, tt.in)
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Empty(t, out)

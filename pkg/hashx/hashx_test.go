@@ -35,6 +35,41 @@ func TestSha256Sum(t *testing.T) {
 	}
 }
 
+func TestTaggedSha256Sum(t *testing.T) {
+	tests := []struct {
+		name      string
+		tag       string
+		data      []byte
+		hexDigest string
+	}{
+		{
+			name:      "empty data",
+			tag:       "TapTweak",
+			data:      nil,
+			hexDigest: "8aa4229474ab0100b2d6f0687f031d1fc9d8eef92a042ad97d279bff456b15e4",
+		},
+		{
+			name:      "abc",
+			tag:       "Tag",
+			data:      []byte("abc"),
+			hexDigest: "244b09c843d472a1ac5c8be3ddfcb99409ca6145fdb3f0764ea4e9d8f1c29e9f",
+		},
+		{
+			name:      "tap tweak vector",
+			tag:       "TapTweak",
+			data:      mustDecodeHex(t, "cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115"),
+			hexDigest: "2ca01ed85cf6b6526f73d39a1111cd80333bfdc00ce98992859848a90a6f0258",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			digest := hashx.TaggedSha256Sum(tt.tag, tt.data)
+			hexDigest := hex.EncodeToString(digest)
+			require.Equal(t, tt.hexDigest, hexDigest)
+		})
+	}
+}
+
 func TestKeccak256Sum(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -111,4 +146,11 @@ func TestBlake2b256Sum(t *testing.T) {
 			require.Equal(t, tt.hexDigest, hexDigest)
 		})
 	}
+}
+
+func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	data, err := hex.DecodeString(s)
+	require.NoError(t, err)
+	return data
 }
