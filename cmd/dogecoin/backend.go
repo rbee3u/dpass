@@ -1,4 +1,5 @@
-// Package dogecoin provides a CLI command for deriving Dogecoin addresses and WIF keys from mnemonics.
+// Package dogecoin provides a CLI command for deriving Dogecoin addresses and
+// WIF-encoded private keys from mnemonics.
 package dogecoin
 
 import (
@@ -16,7 +17,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Derivation constants and output mode for the Dogecoin command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -28,23 +28,25 @@ const (
 	changeDefault = 0
 	// indexDefault selects the first address index.
 	indexDefault = 0
-	// secretDefault prints an address instead of a WIF by default.
+	// secretDefault prints an address instead of a WIF-encoded private key by default.
 	secretDefault = false
 )
 
 // backend holds user-configurable derivation path segments and output mode.
 type backend struct {
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change is the first unhardened trailing path component.
+	// change selects the trailing chain, typically 0 for external receive addresses
+	// and 1 for internal change addresses.
 	change uint32
-	// index is the second unhardened trailing path component.
+	// index selects the child within the chosen change chain.
 	index uint32
-	// secret requests WIF instead of a P2PKH address.
+	// secret requests a WIF-encoded private key instead of a Dogecoin address.
 	secret bool
 }
 
-// backendDefault returns the standard Dogecoin BIP44 path prefix defaults.
+// backendDefault returns the default Dogecoin BIP44 derivation settings.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
@@ -54,32 +56,33 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Dogecoin address or WIF.
+// NewCmd reads a mnemonic from stdin and prints a Dogecoin address or WIF-encoded
+// private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "dogecoin",
-		Short: "Derive a Dogecoin address or private key from a mnemonic",
+		Short: "Derive a Dogecoin address or WIF-encoded private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass dogecoin\n" +
 			"  dpass mnemonic | dpass dogecoin --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass dogecoin --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
+	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "Derivation path change segment (0 external, 1 internal)")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "Derivation path address index")
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (WIF) instead of address")
+		"output WIF-encoded private key instead of address")
 	return cmd
 }
 
-// checkArguments rejects path components that must not be hardened in this CLI.
-func (b *backend) checkArguments() error {
+// checkFlags validates CLI derivation-path inputs and Dogecoin-specific constraints.
+func (b *backend) checkFlags() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
-	if b.change >= bip3x.FirstHardenedChild {
+	if b.change != 0 && b.change != 1 {
 		return invalidChangeError{Got: b.change}
 	}
 	if b.index >= bip3x.FirstHardenedChild {
@@ -88,7 +91,7 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// runE reads a mnemonic and prints a Dogecoin address or WIF.
+// runE reads a mnemonic from stdin and prints a Dogecoin address or WIF-encoded private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -104,9 +107,10 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the BIP32 secp256k1 key and formats address or WIF.
+// getResult derives the BIP32 secp256k1 private key at
+// m/44'/3'/account'/change/index and formats a Dogecoin address or WIF-encoded private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
@@ -124,31 +128,28 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}
 	if b.secret {
-		return skToWIF(sk), nil
+		return encodeSk(sk), nil
 	}
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// skToWIF builds Dogecoin compressed WIF (0x9e prefix, 0x01 suffix) with Base58Check.
-func skToWIF(sk []byte) string {
-	data := slices.Concat([]byte{0x9e}, sk, []byte{1})
+// encodeSk adds the Dogecoin compressed WIF payload (0x9e prefix, 0x01 suffix) and
+// Base58Check-encodes the result.
+func encodeSk(sk []byte) string {
+	data := slices.Concat([]byte{158}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest))
 }
 
-// pkToAddress hashes a compressed pubkey and builds a P2PKH address.
+// pkToAddress compresses the pubkey, hashes it with HASH160, and
+// Base58Check-encodes the result as a P2PKH address.
 func pkToAddress(x, y *big.Int) string {
 	data := make([]byte, 33)
 	data[0] = 2
 	x.FillBytes(data[1:33])
 	data[0] += byte(y.Bit(0))
 	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
-	return pkHashToAddress44(pkHash)
-}
-
-// pkHashToAddress44 Base58Check-encodes pubkey hash with Dogecoin mainnet P2PKH version 0x1e.
-func pkHashToAddress44(pkHash []byte) string {
-	data := slices.Concat([]byte{0x1e}, pkHash)
+	data = slices.Concat([]byte{30}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest))
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/basebb"
 )
 
-// Input/output radices used by Base58 conversion.
 const (
 	// IBase is the radix of raw input bytes before Base58 conversion.
 	IBase uint32 = 256

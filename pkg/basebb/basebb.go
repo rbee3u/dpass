@@ -6,7 +6,6 @@ import (
 	"math"
 )
 
-// Supported input/output radix bounds.
 const (
 	// MinBase is the smallest radix supported for digit conversion.
 	MinBase uint32 = 2
@@ -43,7 +42,8 @@ func Transform(iBase uint32, oBase uint32, in []byte) ([]byte, error) {
 	return transformer.Transform(in)
 }
 
-// Transformer reuses base-conversion parameters; ratio approximates output length from input length.
+// Transformer reuses base-conversion parameters; ratio approximates output length
+// from input length.
 type Transformer struct {
 	// iBase is the radix of the input digit stream.
 	iBase uint32
@@ -74,7 +74,8 @@ func NewTransformer(iBase uint32, oBase uint32) (*Transformer, error) {
 	return &Transformer{iBase: iBase, oBase: oBase, ratio: ioRatio}, nil
 }
 
-// Transform treats in as big-endian digits in iBase and returns big-endian digits in oBase (leading zeros preserved).
+// Transform treats in as big-endian digits in iBase and returns big-endian digits
+// in oBase (leading zeros preserved).
 func (t *Transformer) Transform(in []byte) ([]byte, error) {
 	zeros := 0
 	for zeros < len(in) && in[zeros] == 0 {

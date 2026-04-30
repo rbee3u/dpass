@@ -1,4 +1,5 @@
-// Package solana provides a CLI command for deriving Solana keys from mnemonics.
+// Package solana provides a CLI command for deriving Solana addresses and
+// Base58-encoded Ed25519 keypairs from mnemonics. On Solana, an address is the public key.
 package solana
 
 import (
@@ -13,7 +14,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/bip3x"
 )
 
-// Derivation constants, optional path sentinels, and output mode for the Solana command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -29,23 +29,28 @@ const (
 	indexDefault = 0
 	// indexIgnore omits the final address-index segment.
 	indexIgnore = -1
-	// secretDefault prints the public key instead of the private key by default.
+	// secretDefault prints an address instead of a Base58-encoded Ed25519 keypair by default.
 	secretDefault = false
 )
 
-// backend holds user-configurable derivation path segments; change/index -1 omits trailing hardened levels.
+// backend holds user-configurable derivation path segments and output mode. Set
+// change or index to -1 to omit trailing hardened derivation-path segments.
 type backend struct {
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change uses -1 to omit itself and the index suffix from the path.
+	// change selects the optional trailing hardened chain; set it to -1 to omit this
+	// segment and any following derivation-path segments.
 	change int32
-	// index uses -1 to omit the final hardened address index.
+	// index selects the child within the chosen change chain; set it to -1 to omit
+	// this final derivation-path segment.
 	index int32
-	// secret requests the full Base58-encoded Ed25519 keypair seed+pub; else pubkey only.
+	// secret requests a Base58-encoded Ed25519 keypair instead of a Solana address.
 	secret bool
 }
 
-// backendDefault fixes Solana BIP44 coin type 501 without optional path suffixes.
+// backendDefault returns the default Solana BIP44 derivation settings with change
+// and index enabled at zero.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
@@ -55,30 +60,31 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Base58 secret key or public key.
+// NewCmd reads a mnemonic from stdin and prints a Solana address or Base58-encoded
+// Ed25519 keypair.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "solana",
-		Short: "Derive a Solana address or private key from a mnemonic",
+		Short: "Derive a Solana address or Base58-encoded Ed25519 keypair from a mnemonic",
 		Example: "  dpass mnemonic | dpass solana\n" +
 			"  dpass mnemonic | dpass solana --change -1 --index -1\n" +
 			"  dpass mnemonic | dpass solana --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
 	cmd.Flags().Int32Var(&b.change, "change", changeDefault, fmt.Sprintf(
-		"BIP44 change segment (set to %d to omit change and index)", changeIgnore))
+		"Derivation path change segment (set to %d to omit change and index)", changeIgnore))
 	cmd.Flags().Int32Var(&b.index, "index", indexDefault, fmt.Sprintf(
-		"BIP44 address index (set to %d to omit this segment)", indexIgnore))
+		"Derivation path address index (set to %d to omit this segment)", indexIgnore))
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (Base58 keypair) instead of address")
+		"output Base58-encoded Ed25519 keypair instead of address")
 	return cmd
 }
 
-// checkArguments validates hardened constraints and the change/index ignore pairing rules.
-func (b *backend) checkArguments() error {
+// checkFlags validates CLI derivation-path inputs and Solana-specific omission rules.
+func (b *backend) checkFlags() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
@@ -94,28 +100,28 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// runE reads a mnemonic and prints a Solana secret or public key in Base58.
+// runE reads a mnemonic from stdin and prints a Solana address or Base58-encoded
+// Ed25519 keypair.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("failed to read mnemonic: %w", err)
 	}
-
 	result, err := b.getResult(string(mnemonic))
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stdout.WriteString(result); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)
 	}
-
 	return nil
 }
 
-// getResult derives SLIP-0010 Ed25519 material and encodes the requested key form.
+// getResult derives the SLIP-0010 Ed25519 private key at m/44'/501'/account' with
+// optional /change' and /index' suffixes, and formats a Solana address or
+// Base58-encoded Ed25519 keypair.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")

@@ -1,4 +1,5 @@
-// Package ethereum provides a CLI command for deriving Ethereum addresses and secret keys from mnemonics.
+// Package ethereum provides a CLI command for deriving Ethereum addresses and
+// hex-encoded private keys from mnemonics.
 package ethereum
 
 import (
@@ -16,7 +17,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Derivation constants and output mode for the Ethereum command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -24,63 +24,56 @@ const (
 	coinDefault = 60
 	// accountDefault selects the first account.
 	accountDefault = 0
-	// changeDefault selects the external address chain.
-	changeDefault = 0
 	// indexDefault selects the first address index.
 	indexDefault = 0
-	// secretDefault prints an address instead of a secret key by default.
+	// secretDefault prints an address instead of a hex-encoded private key by default.
 	secretDefault = false
 )
 
-// backend holds user-configurable BIP44 path segments and output mode.
+// backend holds user-configurable derivation path segments and output mode.
 type backend struct {
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change is the first unhardened trailing path component.
-	change uint32
-	// index is the second unhardened trailing path component.
+	// index selects the child within the fixed external chain.
 	index uint32
-	// secret requests hex-encoded secp256k1 secret instead of an EIP-55 address.
+	// secret requests a hex-encoded private key instead of an Ethereum address.
 	secret bool
 }
 
-// backendDefault fixes Ethereum BIP44 coin type 60 with standard trailing indices.
+// backendDefault returns the default Ethereum BIP44 derivation settings.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
-		change:  changeDefault,
 		index:   indexDefault,
 		secret:  secretDefault,
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints an EIP-55 address or hex-encoded secp256k1 key.
+// NewCmd reads a mnemonic from stdin and prints an Ethereum address or a
+// hex-encoded private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "ethereum",
-		Short: "Derive an Ethereum address or private key from a mnemonic",
+		Short: "Derive an Ethereum address or hex-encoded private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass ethereum\n" +
 			"  dpass mnemonic | dpass ethereum --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass ethereum --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "Derivation path address index")
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (hex) instead of address")
+		"output hex-encoded private key instead of address")
 	return cmd
 }
 
-// checkArguments rejects hardened flags that this CLI does not accept as plain integers.
-func (b *backend) checkArguments() error {
+// checkFlags validates CLI derivation-path inputs and Ethereum-specific constraints.
+func (b *backend) checkFlags() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
-	}
-	if b.change >= bip3x.FirstHardenedChild {
-		return invalidChangeError{Got: b.change}
 	}
 	if b.index >= bip3x.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
@@ -88,7 +81,8 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// runE reads a mnemonic and prints an account address or hex secret key.
+// runE reads a mnemonic from stdin and prints an Ethereum address or a hex-encoded
+// private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -104,9 +98,10 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the BIP32 key and formats EIP-55 or raw hex per flags.
+// getResult derives the BIP32 secp256k1 private key at m/44'/60'/account'/0/index
+// and formats an Ethereum address or a hex-encoded private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
@@ -117,7 +112,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		purposeDefault + bip3x.FirstHardenedChild,
 		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
-		b.change,
+		0,
 		b.index,
 	})
 	if err != nil {
@@ -129,7 +124,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// pkToAddress applies Keccak-256 to the uncompressed pubkey and EIP-55-mixes the hex.
+// pkToAddress hashes the uncompressed pubkey with Keccak-256, applies the EIP-55
+// checksum to the hex payload, and returns the 0x-prefixed address.
 func pkToAddress(x, y *big.Int) string {
 	pk := make([]byte, 64)
 	x.FillBytes(pk[:32])

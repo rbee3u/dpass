@@ -15,8 +15,8 @@ func (e invalidAccountError) Error() string {
 	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
-// invalidChangeError reports a --change flag outside the accepted range.
-// Use changeIgnore (-1) to omit the change segment from the derivation path.
+// invalidChangeError reports a --change flag outside the accepted range. Use -1 to
+// omit the change segment and any following derivation-path segments.
 type invalidChangeError struct {
 	Got int32
 }
@@ -25,8 +25,8 @@ func (e invalidChangeError) Error() string {
 	return fmt.Sprintf("invalid change (got %d, must be >= %d)", e.Got, changeIgnore)
 }
 
-// invalidIndexError reports a --index flag outside the accepted range.
-// When --change is changeIgnore, --index must also be indexIgnore.
+// invalidIndexError reports a --index flag outside the accepted range. When
+// --change is -1, --index must also be -1.
 type invalidIndexError struct {
 	Got           int32
 	RequireIgnore bool

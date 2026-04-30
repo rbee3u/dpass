@@ -54,7 +54,8 @@ func (e InvalidWitnessVersionError) Error() string {
 	return fmt.Sprintf("bech32: invalid witness version %d (must be between 0 and 16)", e.Version)
 }
 
-// InvalidWitnessProgramLengthError reports a SegWit witness program with an unsupported size.
+// InvalidWitnessProgramLengthError reports a SegWit witness program with an
+// unsupported size.
 type InvalidWitnessProgramLengthError struct {
 	Version byte
 	Length  int
@@ -73,16 +74,16 @@ func (e InvalidWitnessProgramLengthError) Error() string {
 	)
 }
 
-// Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
-// vs is prepended to the payload as 5-bit values (for example, a witness version),
-// while in is repacked from bytes into 5-bit groups before the checksum is appended.
-// It returns an error when hrp or any 5-bit value is invalid.
+// Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters. vs
+// is prepended to the payload as 5-bit values (for example, a witness version),
+// while in is repacked from bytes into 5-bit groups before the checksum is
+// appended. It returns an error when hrp or any 5-bit value is invalid.
 func Encode(hrp string, vs, in []byte) (string, error) {
 	return encode(hrp, vs, in, bech32ChecksumConstant)
 }
 
-// EncodeSegWit returns a SegWit address using Bech32 for witness version 0
-// and Bech32m for witness versions 1 through 16.
+// EncodeSegWit returns a SegWit address using Bech32 for witness version 0 and
+// Bech32m for witness versions 1 through 16.
 func EncodeSegWit(hrp string, witnessVersion byte, witnessProgram []byte) (string, error) {
 	if witnessVersion > 16 {
 		return "", InvalidWitnessVersionError{Version: witnessVersion}

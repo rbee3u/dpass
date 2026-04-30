@@ -13,21 +13,22 @@ import (
 	"github.com/rbee3u/dpass/pkg/hashx"
 )
 
-// BIP-39 bit-width limits and conversion ratios.
 const (
 	// BitsPerByte is the number of bits in one byte of entropy or output.
 	BitsPerByte = 8
 	// BitsPerWord is the bit width of one BIP-39 word index in the embedded list.
 	BitsPerWord = 11
 
-	// EntropyBitsStep is the entropy size granularity in bits (one word needs 11 bits; checksum scales with entropy).
+	// EntropyBitsStep is the entropy size granularity in bits (one word needs 11 bits;
+	// checksum scales with entropy).
 	EntropyBitsStep = 32
 	// EntropyBitsMin is the smallest entropy size accepted by BIP-39.
 	EntropyBitsMin = 4 * EntropyBitsStep
 	// EntropyBitsMax is the largest entropy size accepted by BIP-39.
 	EntropyBitsMax = 8 * EntropyBitsStep
 
-	// SentenceBitsStep is mnemonic length granularity: 11 bits per word plus checksum bits per 32 bits of entropy.
+	// SentenceBitsStep is mnemonic length granularity: 11 bits per word plus checksum
+	// bits per 32 bits of entropy.
 	SentenceBitsStep = 33
 	// SentenceBitsMin is the bit length of the shortest supported mnemonic sentence.
 	SentenceBitsMin = 4 * SentenceBitsStep
@@ -46,7 +47,8 @@ func (e InvalidEntropyBitsError) Error() string {
 		e.Bits, EntropyBitsStep, EntropyBitsMin, EntropyBitsMax)
 }
 
-// InvalidSentenceBitsError reports mnemonic word-count bits that do not match a valid checksum layout.
+// InvalidSentenceBitsError reports mnemonic word-count bits that do not match a
+// valid checksum layout.
 type InvalidSentenceBitsError struct {
 	// Bits is the rejected mnemonic length expressed in bits.
 	Bits int
@@ -100,7 +102,8 @@ func generateWord2Value() map[string]uint32 {
 	return word2value
 }
 
-// CreateEntropyRandomly returns cryptographically random entropy; entropySize is the length in bits.
+// CreateEntropyRandomly returns cryptographically random entropy; entropySize is
+// the length in bits.
 func CreateEntropyRandomly(entropySize int) ([]byte, error) {
 	if entropySize%EntropyBitsStep != 0 || entropySize < EntropyBitsMin || entropySize > EntropyBitsMax {
 		return nil, InvalidEntropyBitsError{Bits: entropySize}
@@ -135,8 +138,8 @@ func EntropyToMnemonic(entropy []byte) (string, error) {
 }
 
 // MnemonicToSeed validates mnemonic length, wordlist membership, and checksum,
-// then returns the 64-byte PBKDF2-HMAC-SHA512 seed using
-// "mnemonic"+password as salt and 2048 iterations.
+// then returns the 64-byte PBKDF2-HMAC-SHA512 seed using "mnemonic"+password as
+// salt and 2048 iterations.
 func MnemonicToSeed(mnemonic string, password string) ([]byte, error) {
 	sentence := strings.Fields(mnemonic)
 	sentenceBits := len(sentence) * BitsPerWord

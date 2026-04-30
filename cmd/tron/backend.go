@@ -1,4 +1,5 @@
-// Package tron provides a CLI command for deriving Tron addresses and secret keys from mnemonics.
+// Package tron provides a CLI command for deriving Tron addresses and hex-encoded
+// private keys from mnemonics.
 package tron
 
 import (
@@ -17,7 +18,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Derivation constants and output mode for the Tron command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -25,63 +25,55 @@ const (
 	coinDefault = 195
 	// accountDefault selects the first account.
 	accountDefault = 0
-	// changeDefault selects the external address chain.
-	changeDefault = 0
 	// indexDefault selects the first address index.
 	indexDefault = 0
-	// secretDefault prints an address instead of a secret key by default.
+	// secretDefault prints an address instead of a hex-encoded private key by default.
 	secretDefault = false
 )
 
-// backend holds user-configurable BIP44 path segments for Tron (secp256k1).
+// backend holds user-configurable derivation path segments and output mode.
 type backend struct {
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change is the first unhardened trailing path component.
-	change uint32
-	// index is the second unhardened trailing path component.
+	// index selects the child within the fixed external chain.
 	index uint32
-	// secret requests hex-encoded secp256k1 secret; else Base58Check address with 0x41 prefix.
+	// secret requests a hex-encoded private key instead of a Tron address.
 	secret bool
 }
 
-// backendDefault fixes Tron BIP44 coin type 195.
+// backendDefault returns the default Tron BIP44 derivation settings.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
-		change:  changeDefault,
 		index:   indexDefault,
 		secret:  secretDefault,
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Tron address or hex-encoded secret key.
+// NewCmd reads a mnemonic from stdin and prints a Tron address or a hex-encoded private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "tron",
-		Short: "Derive a Tron address or private key from a mnemonic",
+		Short: "Derive a Tron address or hex-encoded private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass tron\n" +
 			"  dpass mnemonic | dpass tron --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass tron --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "Derivation path address index")
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (hex) instead of address")
+		"output hex-encoded private key instead of address")
 	return cmd
 }
 
-// checkArguments rejects path parts that would be invalid as unhardened CLI integers.
-func (b *backend) checkArguments() error {
+// checkFlags validates CLI derivation-path inputs and Tron-specific constraints.
+func (b *backend) checkFlags() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
-	}
-	if b.change >= bip3x.FirstHardenedChild {
-		return invalidChangeError{Got: b.change}
 	}
 	if b.index >= bip3x.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
@@ -89,7 +81,7 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// runE reads a mnemonic and prints a Tron address or hex secret key.
+// runE reads a mnemonic from stdin and prints a Tron address or a hex-encoded private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -105,9 +97,10 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the BIP32 secp256k1 key and formats Tron address or hex secret.
+// getResult derives the BIP32 secp256k1 private key at m/44'/195'/account'/0/index
+// and formats a Tron address or a hex-encoded private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
@@ -118,7 +111,7 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 		purposeDefault + bip3x.FirstHardenedChild,
 		coinDefault + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
-		b.change,
+		0,
 		b.index,
 	})
 	if err != nil {
@@ -130,12 +123,13 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// pkToAddress builds the 0x41-prefixed Keccak-20-byte payload with double-SHA256 checksum.
+// pkToAddress hashes the uncompressed pubkey with Keccak-256, prefixes the 20-byte
+// payload with version byte 0x41, and Base58Check-encodes the result.
 func pkToAddress(x, y *big.Int) string {
 	pk := make([]byte, 64)
 	x.FillBytes(pk[:32])
 	y.FillBytes(pk[32:])
-	data := slices.Concat([]byte{'A'}, hashx.Keccak256Sum(pk)[12:])
+	data := slices.Concat([]byte{65}, hashx.Keccak256Sum(pk)[12:])
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest))
 }

@@ -71,8 +71,8 @@ func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// encrypt seals plaintext with AES-256-GCM and returns hex payload.
-// In this package, payload means nonce||sealed, where sealed already includes the GCM tag.
+// encrypt seals plaintext with AES-256-GCM and returns hex payload. In this
+// package, payload means nonce||sealed, where sealed already includes the GCM tag.
 func (b *encryptBackend) encrypt(key, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -136,8 +136,8 @@ func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// decrypt expects hex payload, where payload means nonce||sealed.
-// The sealed suffix already includes the GCM tag, so decoded payload must be at least nonce plus tag.
+// decrypt expects hex payload, where payload means nonce||sealed. The sealed
+// suffix already includes the GCM tag, so decoded payload must be at least nonce plus tag.
 func (b *decryptBackend) decrypt(key, hexPayload []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

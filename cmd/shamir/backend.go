@@ -14,7 +14,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/shamir"
 )
 
-// CLI defaults for splitting shares and the file mode used for persisted output.
 const (
 	// outputDefault writes shares to stdout unless a prefix is provided.
 	outputDefault = ""

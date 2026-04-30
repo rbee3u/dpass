@@ -11,7 +11,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// BIP-32 shared constants.
 const (
 	// FirstHardenedChild is the BIP-32 hardened index offset (2^31).
 	FirstHardenedChild = uint32(0x80000000)
@@ -34,7 +33,8 @@ func (e InvalidSecp256k1MasterKeyError) Error() string {
 	return "bip32: invalid secp256k1 master key material"
 }
 
-// InvalidSecp256k1IntermediateKeyError reports invalid secp256k1 child intermediate key material.
+// InvalidSecp256k1IntermediateKeyError reports invalid secp256k1 child
+// intermediate key material.
 type InvalidSecp256k1IntermediateKeyError struct {
 	// Depth is the zero-based derivation step that produced the invalid material.
 	Depth int
@@ -58,8 +58,9 @@ func (e InvalidSecp256k1ChildKeyError) Error() string {
 	return fmt.Sprintf("bip32: invalid secp256k1 child key at depth %d index %d", e.Depth, e.Index)
 }
 
-// Secp256k1DeriveSk derives a 32-byte secp256k1 secret key from BIP-39 seed bytes and a BIP-32 path.
-// Non-hardened steps use compressed pubkey data; hardened steps use the parent secret.
+// Secp256k1DeriveSk derives a 32-byte secp256k1 secret key from BIP-39 seed bytes
+// and a BIP-32 path. Non-hardened steps use compressed pubkey data; hardened steps
+// use the parent secret.
 func Secp256k1DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 	sk, cc := hmacSha512([]byte("Bitcoin seed"), seed)
 	if !isValidSecp256k1Secret(sk) {
@@ -103,7 +104,8 @@ func isValidSecp256k1Secret(sk []byte) bool {
 	return true
 }
 
-// Ed25519DeriveSk derives a 32-byte Ed25519 seed per SLIP-0010; every path index must be hardened.
+// Ed25519DeriveSk derives a 32-byte Ed25519 seed per SLIP-0010; every path index
+// must be hardened.
 func Ed25519DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 	sk, cc := hmacSha512([]byte("ed25519 seed"), seed)
 	for i := range path {
@@ -118,7 +120,8 @@ func Ed25519DeriveSk(seed []byte, path []uint32) ([]byte, error) {
 	return sk, nil
 }
 
-// hmacSha512 returns the left 32 bytes (secret/chain material) and right 32 bytes (chain code).
+// hmacSha512 returns the left 32 bytes (secret/chain material) and right 32 bytes
+// (chain code).
 var hmacSha512 = func(key, data []byte) ([]byte, []byte) {
 	hasher := hmac.New(sha512.New, key)
 	_, _ = hasher.Write(data)

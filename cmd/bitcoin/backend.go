@@ -1,8 +1,8 @@
-// Package bitcoin provides a CLI command for deriving Bitcoin addresses and WIF keys from mnemonics.
+// Package bitcoin provides a CLI command for deriving Bitcoin addresses and
+// WIF-encoded private keys from mnemonics.
 package bitcoin
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -18,9 +18,8 @@ import (
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
 
-// Purpose and derivation defaults for the Bitcoin command.
 const (
-	// purposeDefault selects native SegWit derivation by default.
+	// purposeDefault selects BIP84 native SegWit derivation by default.
 	purposeDefault = purpose84
 	// purpose44 selects legacy P2PKH derivation.
 	purpose44 = 44
@@ -31,42 +30,34 @@ const (
 	// purpose86 selects Taproot P2TR derivation.
 	purpose86 = 86
 
-	// coinDefault selects the BIP44 coin type for Bitcoin mainnet.
-	coinDefault = 0
-	// magicPrivateKeyMainNet prefixes mainnet WIF payloads.
-	magicPrivateKeyMainNet = 0x80
-	// magicPubKeyHashMainNet prefixes legacy P2PKH addresses.
-	magicPubKeyHashMainNet = 0x00
-	// magicScriptHashMainNet prefixes nested SegWit P2SH addresses.
-	magicScriptHashMainNet = 0x05
-	// bech32HRPMainNet is the HRP for native SegWit and Taproot addresses.
-	bech32HRPMainNet = "bc"
-
 	// accountDefault selects the first account.
 	accountDefault = 0
 	// changeDefault selects the external address chain.
 	changeDefault = 0
 	// indexDefault selects the first address index.
 	indexDefault = 0
-	// secretDefault prints an address instead of a WIF by default.
+	// secretDefault prints an address instead of a WIF-encoded private key by default.
 	secretDefault = false
 )
 
-// backend holds CLI flags that affect derivation and output encoding.
+// backend holds user-configurable derivation path segments and output mode.
 type backend struct {
-	// purpose selects BIP44 (44), nested SegWit (49), native SegWit (84), or Taproot (86).
+	// purpose selects the purpose path segment and, therefore, the address format for
+	// m/purpose'/0'/account'/change/index.
 	purpose uint32
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change is the first unhardened trailing path component.
+	// change selects the trailing chain, typically 0 for external receive addresses
+	// and 1 for internal change addresses.
 	change uint32
-	// index is the second unhardened trailing path component.
+	// index selects the child within the chosen change chain.
 	index uint32
-	// secret requests WIF output instead of a payment address.
+	// secret requests a WIF-encoded private key instead of a Bitcoin address.
 	secret bool
 }
 
-// backendDefault returns CLI defaults matching Bitcoin mainnet and native SegWit.
+// backendDefault returns the default Bitcoin mainnet derivation settings.
 func backendDefault() *backend {
 	return &backend{
 		purpose: purposeDefault,
@@ -77,12 +68,13 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a derived address or WIF.
+// NewCmd reads a mnemonic from stdin and prints the derived Bitcoin address or
+// WIF-encoded private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "bitcoin",
-		Short: "Derive a Bitcoin address or private key from a mnemonic",
+		Short: "Derive a Bitcoin address or WIF-encoded private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass bitcoin\n" +
 			"  dpass mnemonic | dpass bitcoin --purpose 49 --account 1 --index 2\n" +
 			"  dpass mnemonic | dpass bitcoin --secret",
@@ -90,25 +82,26 @@ func NewCmd() *cobra.Command {
 		RunE: b.runE,
 	}
 	cmd.Flags().Uint32Var(&b.purpose, "purpose", purposeDefault, fmt.Sprintf(
-		"BIP purpose: one of %d (legacy P2PKH) / %d (nested SegWit) / %d (native SegWit) / %d (Taproot BIP86)",
+		"Derivation path purpose segment: one of %d (legacy P2PKH) / %d (nested SegWit) / %d (native SegWit) / %d (Taproot BIP86)",
 		purpose44, purpose49, purpose84, purpose86))
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
-	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "BIP44 change segment")
-	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "BIP44 address index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
+	cmd.Flags().Uint32Var(&b.change, "change", changeDefault, "Derivation path change segment (0 external, 1 internal)")
+	cmd.Flags().Uint32Var(&b.index, "index", indexDefault, "Derivation path address index")
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (WIF) instead of address")
+		"output WIF-encoded private key instead of address")
 	return cmd
 }
 
-// checkArguments validates CLI flags without mutating backend state.
-func (b *backend) checkArguments() error {
-	if err := b.checkPurpose(); err != nil {
-		return err
+// checkFlags validates CLI derivation-path inputs and Bitcoin-specific constraints.
+func (b *backend) checkFlags() error {
+	allowed := []uint32{purpose44, purpose49, purpose84, purpose86}
+	if !slices.Contains(allowed, b.purpose) {
+		return invalidPurposeError{Got: b.purpose, Allowed: allowed}
 	}
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
-	if b.change >= bip3x.FirstHardenedChild {
+	if b.change != 0 && b.change != 1 {
 		return invalidChangeError{Got: b.change}
 	}
 	if b.index >= bip3x.FirstHardenedChild {
@@ -117,41 +110,8 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// checkPurpose validates the selected BIP purpose.
-func (b *backend) checkPurpose() error {
-	switch b.purpose {
-	case purpose44:
-	case purpose49:
-	case purpose84:
-	case purpose86:
-		return nil
-	default:
-		return invalidPurposeError{
-			Got:     b.purpose,
-			Allowed: []uint32{purpose44, purpose49, purpose84, purpose86},
-		}
-	}
-	return nil
-}
-
-// resolveLegacyPurpose returns the legacy address encoder for non-Taproot purposes.
-func (b *backend) resolveLegacyPurpose() (func([]byte) (string, error), error) {
-	switch b.purpose {
-	case purpose44:
-		return pkHashToAddress44, nil
-	case purpose49:
-		return pkHashToAddress49, nil
-	case purpose84:
-		return pkHashToAddress84, nil
-	default:
-		return nil, invalidPurposeError{
-			Got:     b.purpose,
-			Allowed: []uint32{purpose44, purpose49, purpose84},
-		}
-	}
-}
-
-// runE reads a mnemonic from stdin and prints the derived address or WIF.
+// runE reads a mnemonic from stdin and prints the derived Bitcoin address or
+// WIF-encoded private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -162,144 +122,138 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	if _, err := os.Stdout.WriteString(result); err != nil {
-		return fmt.Errorf("failed to write result: %w", err)
+		return fmt.Errorf("failed to write result to stdout: %w", err)
 	}
 	return nil
 }
 
-// getResult derives the secp256k1 key along the BIP32 path and formats output per flags.
+// getResult derives the BIP32 secp256k1 private key at
+// m/purpose'/0'/account'/change/index and formats a Bitcoin address or WIF-encoded
+// private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
 	if err != nil {
-		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
+		return "", fmt.Errorf("failed to derive seed from mnemonic: %w", err)
 	}
 	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
 		b.purpose + bip3x.FirstHardenedChild,
-		coinDefault + bip3x.FirstHardenedChild,
+		0 + bip3x.FirstHardenedChild,
 		b.account + bip3x.FirstHardenedChild,
 		b.change,
 		b.index,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to derive private key: %w", err)
+		return "", fmt.Errorf("failed to derive child private key: %w", err)
 	}
-	if b.purpose == purpose86 {
-		return b.taprootResult(sk)
-	}
-	convert, err := b.resolveLegacyPurpose()
-	if err != nil {
-		return "", err
+	var pkOrPkHash []byte
+	switch b.purpose {
+	case purpose44, purpose49, purpose84:
+		sk, pkOrPkHash = prepareClassic(sk)
+	default:
+		sk, pkOrPkHash = prepareTaproot(sk)
 	}
 	if b.secret {
-		return b.skToWIF(sk), nil
+		return encodeSk(sk), nil
 	}
+	switch b.purpose {
+	case purpose44:
+		return pkHashToAddress44(pkOrPkHash)
+	case purpose49:
+		return pkHashToAddress49(pkOrPkHash)
+	case purpose84:
+		return pkHashToAddress84(pkOrPkHash)
+	default:
+		return pkToAddress86(pkOrPkHash)
+	}
+}
+
+// prepareClassic returns the original child private key plus HASH160(compressed pubkey).
+func prepareClassic(sk []byte) ([]byte, []byte) {
 	x, y := secp256k1.S256().ScalarBaseMult(sk)
-	return b.pkToAddress(x, y, convert)
+	pk := make([]byte, 33)
+	pk[0] = 2
+	x.FillBytes(pk[1:33])
+	pk[0] += byte(y.Bit(0))
+	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(pk))
+	return sk, pkHash
 }
 
-func (b *backend) taprootResult(sk []byte) (string, error) {
-	taprootKey, err := deriveTaprootKey(sk)
-	if err != nil {
-		return "", err
+// prepareTaproot normalizes the internal key to even Y, applies the TapTweak hash,
+// and returns the tweaked private key plus x-only output key.
+func prepareTaproot(sk0Bytes []byte) ([]byte, []byte) {
+	curve := secp256k1.S256()
+	sk := new(big.Int).SetBytes(sk0Bytes)
+	x, y := curve.ScalarBaseMult(sk0Bytes)
+	if y.Bit(0) == 1 {
+		sk.Sub(curve.N, sk)
+		y.Sub(curve.P, y)
+		y.Mod(y, curve.P)
 	}
-	if b.secret {
-		return b.skToWIF(taprootKey.secret), nil
+	xBytes := make([]byte, 32)
+	x.FillBytes(xBytes)
+	tagHash := hashx.Sha256Sum([]byte("TapTweak"))
+	tBytes := hashx.Sha256Sum(slices.Concat(tagHash, tagHash, xBytes))
+	t := new(big.Int).SetBytes(tBytes)
+	if t.Cmp(curve.N) >= 0 {
+		panic("taproot: tweak exceeds curve order")
 	}
-	address, err := bech32.EncodeSegWit(bech32HRPMainNet, 1, taprootKey.outputKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode taproot address: %w", err)
+	osk := new(big.Int).Add(sk, t)
+	osk.Mod(osk, curve.N)
+	if osk.Sign() == 0 {
+		panic("taproot: output private key is zero")
 	}
-	return address, nil
+	oskBytes := make([]byte, 32)
+	osk.FillBytes(oskBytes)
+	ox, _ := curve.ScalarBaseMult(oskBytes)
+	opkBytes := make([]byte, 32)
+	ox.FillBytes(opkBytes)
+	return oskBytes, opkBytes
 }
 
-// skToWIF encodes the secret with the Bitcoin mainnet compressed WIF payload and Base58Check.
-func (b *backend) skToWIF(sk []byte) string {
-	data := slices.Concat([]byte{magicPrivateKeyMainNet}, sk, []byte{1})
+// encodeSk adds the Bitcoin mainnet compressed WIF payload and Base58Check-encodes
+// the result.
+func encodeSk(sk []byte) string {
+	data := slices.Concat([]byte{128}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest))
 }
 
-// pkToAddress hashes the compressed pubkey and encodes the result per purpose.
-func (b *backend) pkToAddress(
-	x, y *big.Int,
-	convert func([]byte) (string, error),
-) (string, error) {
-	data := make([]byte, 33)
-	data[0] = 2
-	x.FillBytes(data[1:33])
-	data[0] += byte(y.Bit(0))
-	pkHash := hashx.RipeMD160Sum(hashx.Sha256Sum(data))
-	return convert(pkHash)
-}
-
-// pkHashToAddress44 builds a P2PKH Base58Check address (BIP44 legacy).
+// pkHashToAddress44 prefixes HASH160(compressed pubkey) with version 0x00 and
+// Base58Check-encodes the result as a legacy P2PKH address.
 func pkHashToAddress44(pkHash []byte) (string, error) {
-	data := slices.Concat([]byte{magicPubKeyHashMainNet}, pkHash)
+	data := slices.Concat([]byte{0}, pkHash)
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
-// pkHashToAddress49 wraps the pubkey hash in P2WPKH-in-P2SH and Base58Check-encodes it.
+// pkHashToAddress49 wraps HASH160(compressed pubkey) in P2WPKH-in-P2SH, hashes the
+// script, and Base58Check-encodes the result.
 func pkHashToAddress49(pkHash []byte) (string, error) {
 	pkScript := slices.Concat([]byte{0, 20}, pkHash)
-	data := slices.Concat([]byte{magicScriptHashMainNet}, hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
+	data := slices.Concat([]byte{5}, hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
-// pkHashToAddress84 Bech32-encodes witness version 0 with the pubkey hash (BIP84).
+// pkHashToAddress84 encodes HASH160(compressed pubkey) as a witness version 0
+// Bech32 address for BIP84.
 func pkHashToAddress84(pkHash []byte) (string, error) {
-	address, err := bech32.EncodeSegWit(bech32HRPMainNet, 0, pkHash)
+	address, err := bech32.EncodeSegWit("bc", 0, pkHash)
 	if err != nil {
-		return "", fmt.Errorf("failed to encode bech32 address: %w", err)
+		return "", fmt.Errorf("failed to encode address: %w", err)
 	}
 	return address, nil
 }
 
-type taprootKey struct {
-	secret    []byte
-	outputKey []byte
-}
-
-// deriveTaprootKey returns the BIP86 tweaked private key and output key.
-func deriveTaprootKey(sk []byte) (taprootKey, error) {
-	curve := secp256k1.S256()
-	d := new(big.Int).SetBytes(sk)
-	x, y := curve.ScalarBaseMult(sk)
-	if y.Bit(0) == 1 {
-		d.Sub(curve.N, d)
-		y.Sub(curve.P, y)
-		y.Mod(y, curve.P)
+// pkToAddress86 encodes the tweaked x-only pubkey as a witness version 1 Bech32m
+// address for BIP86.
+func pkToAddress86(pk []byte) (string, error) {
+	address, err := bech32.EncodeSegWit("bc", 1, pk)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode address: %w", err)
 	}
-
-	internalKey := make([]byte, 32)
-	x.FillBytes(internalKey)
-
-	tagHash := hashx.Sha256Sum([]byte("TapTweak"))
-	tweakBytes := hashx.Sha256Sum(slices.Concat(tagHash, tagHash, internalKey))
-	tweak := new(big.Int).SetBytes(tweakBytes)
-	if tweak.Cmp(curve.N) >= 0 {
-		return taprootKey{}, errors.New("failed to tweak taproot key: tweak exceeds curve order")
-	}
-
-	tx, ty := curve.ScalarBaseMult(tweakBytes)
-	outputX, outputY := curve.Add(x, y, tx, ty)
-
-	secret := new(big.Int).Add(d, tweak)
-	secret.Mod(secret, curve.N)
-	if secret.Sign() == 0 {
-		return taprootKey{}, errors.New("failed to tweak taproot key: tweaked private key is zero")
-	}
-	if outputX.Sign() == 0 && outputY.Sign() == 0 {
-		return taprootKey{}, errors.New("failed to tweak taproot key: output key is point at infinity")
-	}
-
-	outputKey := make([]byte, 32)
-	outputX.FillBytes(outputKey)
-	secretBytes := make([]byte, 32)
-	secret.FillBytes(secretBytes)
-	return taprootKey{secret: secretBytes, outputKey: outputKey}, nil
+	return address, nil
 }

@@ -2,9 +2,9 @@ package shamir
 
 import "fmt"
 
-// SplitConstraintError reports that Split received parameters that violate
-// the fixed constraint MinShares <= threshold <= parts <= MaxShares.
-// Callers can inspect Threshold and Parts to determine which clause failed.
+// SplitConstraintError reports that Split received parameters that violate the
+// fixed constraint MinShares <= threshold <= parts <= MaxShares. Callers can
+// inspect Threshold and Parts to determine which clause failed.
 type SplitConstraintError struct {
 	// Parts is the requested total share count.
 	Parts int
@@ -19,8 +19,8 @@ func (e SplitConstraintError) Error() string {
 	)
 }
 
-// SharesTooFewError reports that Combine received fewer than MinShares shares,
-// so interpolation cannot begin.
+// SharesTooFewError reports that Combine received fewer than MinShares shares, so
+// interpolation cannot begin.
 type SharesTooFewError struct {
 	// Count is the number of shares supplied to Combine.
 	Count int
@@ -43,9 +43,9 @@ func (e ShareTooShortError) Error() string {
 	return fmt.Sprintf("shamir: share %d: invalid length (got %d, must be >= %d)", e.Index, e.Length, MinShareLength)
 }
 
-// ShareLengthMismatchError reports that Combine received a share whose
-// length does not match the first validated share, so all inputs cannot
-// describe the same encoded secret.
+// ShareLengthMismatchError reports that Combine received a share whose length does
+// not match the first validated share, so all inputs cannot describe the same
+// encoded secret.
 type ShareLengthMismatchError struct {
 	// Index is the zero-based position of the mismatched share in the input slice.
 	Index int
@@ -70,8 +70,8 @@ func (e ShareXZeroError) Error() string {
 	return fmt.Sprintf("shamir: share %d: x-coordinate 0 is reserved", e.Index)
 }
 
-// ShareXDuplicateError reports that Combine received two shares with the
-// same non-zero x-coordinate, so interpolation no longer has distinct points.
+// ShareXDuplicateError reports that Combine received two shares with the same
+// non-zero x-coordinate, so interpolation no longer has distinct points.
 type ShareXDuplicateError struct {
 	// Index is the zero-based position of the duplicate share in the input slice.
 	Index int

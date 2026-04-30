@@ -18,10 +18,9 @@ var (
 	readPassword  = term.ReadPassword
 )
 
-// ReadPassword prints prompt, reads a line without echo when possible, and appends a
-// trailing newline after a successful read.
-// When stdin is not a TTY, it reads from /dev/tty so callers can keep stdin reserved
-// for piped command data.
+// ReadPassword prints prompt, reads a line without echo when possible, and appends
+// a trailing newline after a successful read. When stdin is not a TTY, it reads
+// from /dev/tty so callers can keep stdin reserved for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
 	fd, promptWriter := syscall.Stdin, io.Writer(os.Stderr)
 	if isNotTerminal(fd) {
@@ -49,8 +48,8 @@ func ReadPassword(prompt string) (password []byte, err error) {
 	return password, nil
 }
 
-// DeriveKey returns a 32-byte key from password using Argon2id.
-// The salt, cost parameters, and output length are part of the payload compatibility contract.
+// DeriveKey returns a 32-byte key from password using Argon2id. The salt, cost
+// parameters, and output length are part of the payload compatibility contract.
 // Changing them would make existing encrypted payloads undecryptable with this function.
 func DeriveKey(password []byte) []byte {
 	salt := []byte("github.com/rbee3u/dpass/internal/dpass.DeriveKey")

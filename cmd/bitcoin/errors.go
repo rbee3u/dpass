@@ -31,13 +31,13 @@ func (e invalidAccountError) Error() string {
 	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
-// invalidChangeError reports a --change flag that would exceed the hardened boundary.
+// invalidChangeError reports a --change flag outside the external/internal chain set.
 type invalidChangeError struct {
 	Got uint32
 }
 
 func (e invalidChangeError) Error() string {
-	return fmt.Sprintf("invalid change (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid change (got %d, must be 0 or 1)", e.Got)
 }
 
 // invalidIndexError reports a --index flag that would exceed the hardened boundary.

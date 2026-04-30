@@ -81,17 +81,6 @@ func TestBackendErrors(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid change",
-			setup: func(b *backend) {
-				b.change = bip3x.FirstHardenedChild
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target invalidChangeError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
-			},
-		},
-		{
 			name: "invalid index",
 			setup: func(b *backend) {
 				b.index = bip3x.FirstHardenedChild

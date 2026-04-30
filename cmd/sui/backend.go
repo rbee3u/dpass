@@ -1,4 +1,5 @@
-// Package sui provides a CLI command for deriving Sui addresses and secret keys from mnemonics.
+// Package sui provides a CLI command for deriving Sui addresses and Bech32-encoded
+// Sui private keys with the suiprivkey prefix from mnemonics.
 package sui
 
 import (
@@ -16,7 +17,6 @@ import (
 	"github.com/rbee3u/dpass/pkg/hashx"
 )
 
-// Derivation constants, optional path sentinels, and output mode for the Sui command.
 const (
 	// purposeDefault selects BIP44 derivation.
 	purposeDefault = 44
@@ -32,23 +32,28 @@ const (
 	indexDefault = 0
 	// indexIgnore omits the final address-index segment.
 	indexIgnore = -1
-	// secretDefault prints an address instead of a secret key by default.
+	// secretDefault prints an address instead of a Bech32-encoded Sui private key by default.
 	secretDefault = false
 )
 
-// backend mirrors Solana-style user-configurable trailing path levels.
+// backend holds user-configurable derivation path segments and output mode. Set
+// change or index to -1 to omit trailing hardened derivation-path segments.
 type backend struct {
-	// account is the hardened account segment in the derivation path.
+	// account is the account number before hardening, so it must stay below the
+	// hardened boundary.
 	account uint32
-	// change uses -1 to omit itself and the index suffix from the path.
+	// change selects the optional trailing hardened chain; set it to -1 to omit this
+	// segment and any following derivation-path segments.
 	change int32
-	// index uses -1 to omit the final hardened address index.
+	// index selects the child within the chosen change chain; set it to -1 to omit
+	// this final derivation-path segment.
 	index int32
-	// secret requests suiprivkey Bech32; else a 0x-prefixed Blake2b-256 address.
+	// secret requests a Bech32-encoded Sui private key instead of a Sui address.
 	secret bool
 }
 
-// backendDefault targets Sui coin type 784 with default account/change/index.
+// backendDefault returns the default Sui BIP44 derivation settings with change and
+// index enabled at zero.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
@@ -58,30 +63,31 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Sui address or suiprivkey Bech32 secret.
+// NewCmd reads a mnemonic from stdin and prints a Sui address or Bech32-encoded
+// Sui private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
 		Use:   "sui",
-		Short: "Derive a Sui address or private key from a mnemonic",
+		Short: "Derive a Sui address or Bech32-encoded Sui private key from a mnemonic",
 		Example: "  dpass mnemonic | dpass sui\n" +
 			"  dpass mnemonic | dpass sui --change -1 --index -1\n" +
 			"  dpass mnemonic | dpass sui --secret",
 		Args: cobra.NoArgs,
 		RunE: b.runE,
 	}
-	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "BIP44 account index")
+	cmd.Flags().Uint32Var(&b.account, "account", accountDefault, "Derivation path account index")
 	cmd.Flags().Int32Var(&b.change, "change", changeDefault, fmt.Sprintf(
-		"BIP44 change segment (set to %d to omit change and index)", changeIgnore))
+		"Derivation path change segment (set to %d to omit change and index)", changeIgnore))
 	cmd.Flags().Int32Var(&b.index, "index", indexDefault, fmt.Sprintf(
-		"BIP44 address index (set to %d to omit this segment)", indexIgnore))
+		"Derivation path address index (set to %d to omit this segment)", indexIgnore))
 	cmd.Flags().BoolVar(&b.secret, "secret", secretDefault,
-		"output private key (Bech32 suiprivkey) instead of address")
+		"output Bech32-encoded Sui private key instead of address")
 	return cmd
 }
 
-// checkArguments mirrors Solana rules: -1 change drops suffixes; index must stay consistent.
-func (b *backend) checkArguments() error {
+// checkFlags validates CLI derivation-path inputs and Sui-specific omission rules.
+func (b *backend) checkFlags() error {
 	if b.account >= bip3x.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
@@ -97,7 +103,8 @@ func (b *backend) checkArguments() error {
 	return nil
 }
 
-// runE reads a mnemonic and prints a Sui address or suiprivkey secret encoding.
+// runE reads a mnemonic from stdin and prints a Sui address or Bech32-encoded Sui
+// private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -113,9 +120,11 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives Ed25519 per SLIP-0010 and formats Sui-specific encodings.
+// getResult derives the SLIP-0010 Ed25519 private key at m/44'/784'/account' with
+// optional /change' and /index' suffixes, and formats a Sui address or
+// Bech32-encoded Sui private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
-	if err := b.checkArguments(); err != nil {
+	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
 	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
@@ -139,25 +148,23 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	}
 	privateKey := ed25519.NewKeyFromSeed(sk)
 	if b.secret {
-		secret, err := encodeSecretKey(privateKey[:ed25519.SeedSize])
-		if err != nil {
-			return "", err
-		}
-		return secret, nil
+		return encodeSk(privateKey[:ed25519.SeedSize])
 	}
 	return pkToAddress(privateKey[ed25519.SeedSize:]), nil
 }
 
-// encodeSecretKey Bech32-encodes the 32-byte seed with scheme tag suiprivkey (flag byte 0).
-func encodeSecretKey(sk []byte) (string, error) {
-	key, err := bech32.Encode("suiprivkey", nil, slices.Concat([]byte{0}, sk))
+// encodeSk prepends scheme flag 0x00 to the 32-byte seed and Bech32-encodes the
+// result as a Sui private key with the suiprivkey prefix.
+func encodeSk(sk []byte) (string, error) {
+	out, err := bech32.Encode("suiprivkey", nil, slices.Concat([]byte{0}, sk))
 	if err != nil {
-		return "", fmt.Errorf("failed to encode suiprivkey: %w", err)
+		return "", fmt.Errorf("failed to encode private key: %w", err)
 	}
-	return key, nil
+	return out, nil
 }
 
-// pkToAddress hashes flag 0x00||pubkey with BLAKE2b-256 and hex-encodes with 0x prefix.
+// pkToAddress prepends scheme flag 0x00 to the pubkey, hashes the payload with
+// BLAKE2b-256, and hex-encodes the result with a 0x prefix.
 func pkToAddress(pk []byte) string {
 	return "0x" + hex.EncodeToString(hashx.Blake2b256Sum(slices.Concat([]byte{0}, pk)))
 }

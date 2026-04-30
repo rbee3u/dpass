@@ -10,7 +10,6 @@ import (
 	"rsc.io/qr"
 )
 
-// QR rendering defaults and accepted flag bounds.
 const (
 	// levelDefault selects the lowest QR error-correction level by default.
 	levelDefault = levelL
@@ -96,7 +95,7 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 
 // getResult validates flags, encodes text as QR, and renders ANSI background-color cells.
 func (b *backend) getResult(text string) ([]byte, error) {
-	if err := b.checkArguments(text); err != nil {
+	if err := b.checkFlags(text); err != nil {
 		return nil, err
 	}
 	code, err := qr.Encode(text, b.levelInt)
@@ -117,8 +116,8 @@ func (b *backend) getResult(text string) ([]byte, error) {
 	return result, nil
 }
 
-// checkArguments maps string flags to rsc.io/qr levels and validates quiet zone and input size.
-func (b *backend) checkArguments(text string) error {
+// checkFlags maps string flags to rsc.io/qr levels and validates quiet zone and input size.
+func (b *backend) checkFlags(text string) error {
 	switch b.level {
 	case levelL:
 		b.levelInt = qr.L
@@ -134,14 +133,11 @@ func (b *backend) checkArguments(text string) error {
 			Allowed: []string{levelL, levelM, levelQ, levelH},
 		}
 	}
-
 	if b.quiet < quietMin || quietMax < b.quiet {
 		return invalidQuietError{Got: b.quiet, Min: quietMin, Max: quietMax}
 	}
-
 	if len(text) > maxInputBytes {
 		return inputTooLongError{Got: len(text), Max: maxInputBytes}
 	}
-
 	return nil
 }

@@ -121,12 +121,12 @@ func TestBackendErrors(t *testing.T) {
 		{
 			name: "invalid change",
 			setup: func(b *backend) {
-				b.change = bip3x.FirstHardenedChild
+				b.change = 2
 			},
 			requireErr: func(t *testing.T, err error) {
 				var target invalidChangeError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
+				require.Equal(t, uint32(2), target.Got)
 			},
 		},
 		{

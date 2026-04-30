@@ -105,7 +105,8 @@ func (e emptyShareBodyError) Error() string {
 	return fmt.Sprintf("share %d: empty share body", e.Position)
 }
 
-// insufficientSharesError reports that fewer shares than the encoded threshold were provided.
+// insufficientSharesError reports that fewer shares than the encoded threshold
+// were provided.
 type insufficientSharesError struct {
 	Got  int
 	Need int
