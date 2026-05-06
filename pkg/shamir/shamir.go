@@ -27,7 +27,6 @@ func Split(secret []byte, parts, threshold int) ([][]byte, error) {
 	if !(MinShares <= threshold && threshold <= parts && parts <= MaxShares) {
 		return nil, SplitConstraintError{Parts: parts, Threshold: threshold}
 	}
-
 	shares := make([][]byte, parts)
 	for i := range shares {
 		shares[i] = make([]byte, len(secret)+1)
@@ -70,7 +69,6 @@ func Combine(shares [][]byte) ([]byte, error) {
 		}
 		xCoordinates[i], seen[xCoordinate] = xCoordinate, i
 	}
-
 	secret, weights := make([]byte, len(shares[0])-1), polyWeights(xCoordinates, 0)
 	for j := range secret {
 		for i := range shares {

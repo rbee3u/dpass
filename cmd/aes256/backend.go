@@ -32,7 +32,7 @@ func NewCmdEncrypt() *cobra.Command {
 	b := encryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "encrypt",
-		Short: "Encrypt plaintext from stdin with AES-256-GCM and write a hex payload",
+		Short: "Encrypt a plaintext from stdin with AES-256-GCM and write a hex payload",
 		Example: "  printf 'hello' | dpass encrypt\n" +
 			"  cat secret.txt | dpass encrypt",
 		Args: cobra.NoArgs,
@@ -96,7 +96,7 @@ func NewCmdDecrypt() *cobra.Command {
 	b := decryptBackendDefault()
 	cmd := &cobra.Command{
 		Use:   "decrypt",
-		Short: "Decrypt an AES-256-GCM hex payload from stdin and write plaintext",
+		Short: "Decrypt an AES-256-GCM hex payload from stdin and write a plaintext",
 		Example: "  printf '0123abcd' | dpass decrypt\n" +
 			"  cat payload.hex | dpass decrypt",
 		Args: cobra.NoArgs,

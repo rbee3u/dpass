@@ -32,8 +32,9 @@ func main() {
 			"encryption, generates BIP-39 mnemonics, and derives addresses or private keys for\n" +
 			"Bitcoin, Ethereum, Tron, Solana, Dogecoin, and Sui.",
 		Example: "  printf 'hello' | dpass encrypt\n" +
-			"  printf 'correct horse battery staple' | dpass split\n" +
-			"  cat shares.pem | dpass combine\n" +
+			"  printf 'correct horse battery staple' | dpass split -o share -n 5 -m 3\n" +
+			"  cat share-5-3-0.txt share-5-3-1.txt share-5-3-2.txt | dpass combine\n" +
+			"  printf '0123abcd' | dpass decrypt\n" +
 			"  dpass mnemonic | dpass bitcoin",
 		Args:          cobra.NoArgs,
 		Version:       version,
