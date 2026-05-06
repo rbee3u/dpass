@@ -12,10 +12,14 @@ import (
 )
 
 var (
-	isNotTerminal = func(fd int) bool { return !term.IsTerminal(fd) }
-	openTerminal  = func() (*os.File, error) { return os.Open("/dev/tty") }
-	closeTerminal = func(terminal *os.File) error { return terminal.Close() }
-	readPassword  = term.ReadPassword
+	isTerminal   = term.IsTerminal
+	openTerminal = func() (*os.File, error) {
+		return os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	}
+	closeTerminal = func(terminal *os.File) error {
+		return terminal.Close()
+	}
+	readPassword = term.ReadPassword
 )
 
 // ReadPassword prints prompt, reads a line without echo when possible, and appends
@@ -23,7 +27,7 @@ var (
 // from /dev/tty so callers can keep stdin reserved for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
 	fd, promptWriter := syscall.Stdin, io.Writer(os.Stderr)
-	if isNotTerminal(fd) {
+	if !isTerminal(fd) {
 		var terminal *os.File
 		if terminal, err = openTerminal(); err != nil {
 			return nil, fmt.Errorf("failed to open terminal for password input: %w", err)

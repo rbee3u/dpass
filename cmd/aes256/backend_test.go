@@ -66,7 +66,7 @@ func TestEncryptBackendErrors(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid encrypt key length",
+			name: "invalid key length",
 			setup: func(eb *encryptBackend) {
 				eb.nonceReader = bytes.NewReader([]byte("ccc66c168049"))
 			},
@@ -100,7 +100,7 @@ func TestDecryptBackendErrors(t *testing.T) {
 		requireErr func(*testing.T, error)
 	}{
 		{
-			name:    "invalid decrypt key length",
+			name:    "invalid key length",
 			key:     []byte("bad-key"),
 			payload: []byte("6363633636633136383034393b259b209b39ed3c78752632e2ca4050"),
 			requireErr: func(t *testing.T, err error) {

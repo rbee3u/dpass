@@ -8,6 +8,7 @@ import (
 
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
 type invalidAccountError struct {
+	// Got is the account value provided by the caller.
 	Got uint32
 }
 
@@ -17,6 +18,7 @@ func (e invalidAccountError) Error() string {
 
 // invalidChangeError reports a --change flag outside the external/internal chain set.
 type invalidChangeError struct {
+	// Got is the change value provided by the caller.
 	Got uint32
 }
 
@@ -26,6 +28,7 @@ func (e invalidChangeError) Error() string {
 
 // invalidIndexError reports a --index flag that would exceed the hardened boundary.
 type invalidIndexError struct {
+	// Got is the index value provided by the caller.
 	Got uint32
 }
 

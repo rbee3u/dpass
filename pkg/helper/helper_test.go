@@ -15,16 +15,16 @@ import (
 
 func TestReadPassword(t *testing.T) {
 	tests := []struct {
-		name          string
-		isNotTerminal bool
+		name       string
+		isTerminal bool
 	}{
 		{
-			name:          "stdin is not terminal",
-			isNotTerminal: true,
+			name:       "stdin is not terminal",
+			isTerminal: false,
 		},
 		{
-			name:          "stdin is terminal",
-			isNotTerminal: false,
+			name:       "stdin is terminal",
+			isTerminal: true,
 		},
 	}
 	for _, tt := range tests {
@@ -34,12 +34,12 @@ func TestReadPassword(t *testing.T) {
 			t.Cleanup(func() {
 				require.NoError(t, promptReader.Close())
 			})
-			helper.StubIsNotTerminal(t, func(int) bool {
-				return tt.isNotTerminal
+			helper.StubIsTerminal(t, func(int) bool {
+				return tt.isTerminal
 			})
 			var wantFd int
 			var openTerminalCalled bool
-			if tt.isNotTerminal {
+			if !tt.isTerminal {
 				wantFd = int(promptWriter.Fd())
 				helper.StubOpenTerminal(t, func() (*os.File, error) {
 					openTerminalCalled = true
@@ -62,8 +62,8 @@ func TestReadPassword(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, []byte("secret"), password)
 			require.Equal(t, wantFd, gotFd)
-			require.Equal(t, tt.isNotTerminal, openTerminalCalled)
-			if !tt.isNotTerminal {
+			require.Equal(t, !tt.isTerminal, openTerminalCalled)
+			if tt.isTerminal {
 				require.NoError(t, promptWriter.Close())
 			}
 			prompt, err := io.ReadAll(promptReader)
@@ -76,8 +76,8 @@ func TestReadPassword(t *testing.T) {
 func TestReadPasswordErrors(t *testing.T) {
 	t.Run("fails to open terminal", func(t *testing.T) {
 		expected := errors.New("no tty")
-		helper.StubIsNotTerminal(t, func(int) bool {
-			return true
+		helper.StubIsTerminal(t, func(int) bool {
+			return false
 		})
 		helper.StubOpenTerminal(t, func() (*os.File, error) {
 			return nil, expected
@@ -94,8 +94,8 @@ func TestReadPasswordErrors(t *testing.T) {
 		require.NoError(t, promptWriter.Close())
 		helper.Stub(t, &os.Stderr, promptWriter)
 		var readPasswordCalled bool
-		helper.StubIsNotTerminal(t, func(int) bool {
-			return false
+		helper.StubIsTerminal(t, func(int) bool {
+			return true
 		})
 		helper.StubReadPassword(t, func(int) ([]byte, error) {
 			readPasswordCalled = true
@@ -116,8 +116,8 @@ func TestReadPasswordErrors(t *testing.T) {
 			require.NoError(t, promptReader.Close())
 		})
 		helper.Stub(t, &os.Stderr, promptWriter)
-		helper.StubIsNotTerminal(t, func(int) bool {
-			return false
+		helper.StubIsTerminal(t, func(int) bool {
+			return true
 		})
 		helper.StubReadPassword(t, func(int) ([]byte, error) {
 			return nil, expected
@@ -139,8 +139,8 @@ func TestReadPasswordErrors(t *testing.T) {
 		})
 		helper.Stub(t, &os.Stderr, promptWriter)
 		var readPasswordCalled bool
-		helper.StubIsNotTerminal(t, func(int) bool {
-			return false
+		helper.StubIsTerminal(t, func(int) bool {
+			return true
 		})
 		helper.StubReadPassword(t, func(int) ([]byte, error) {
 			readPasswordCalled = true
@@ -161,8 +161,8 @@ func TestReadPasswordErrors(t *testing.T) {
 		t.Cleanup(func() {
 			require.NoError(t, promptReader.Close())
 		})
-		helper.StubIsNotTerminal(t, func(int) bool {
-			return true
+		helper.StubIsTerminal(t, func(int) bool {
+			return false
 		})
 		helper.StubOpenTerminal(t, func() (*os.File, error) {
 			return promptWriter, nil

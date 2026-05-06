@@ -15,8 +15,10 @@ var (
 
 // missingHeaderError reports a required PEM header key absent from a share block.
 type missingHeaderError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
-	Key      string
+	// Key is the missing PEM header name.
+	Key string
 }
 
 func (e missingHeaderError) Error() string {
@@ -25,10 +27,14 @@ func (e missingHeaderError) Error() string {
 
 // unparsableHeaderError reports a PEM header value that failed to parse.
 type unparsableHeaderError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
-	Key      string
-	Value    string
-	Err      error
+	// Key is the PEM header name that failed to parse.
+	Key string
+	// Value is the raw PEM header value that failed to parse.
+	Value string
+	// Err is the underlying parse error.
+	Err error
 }
 
 func (e unparsableHeaderError) Error() string {
@@ -41,10 +47,14 @@ func (e unparsableHeaderError) Unwrap() error {
 
 // invalidHeaderError reports a PEM header value outside the supported range.
 type invalidHeaderError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
-	Key      string
-	Value    int
-	Detail   string
+	// Key is the PEM header name whose value was rejected.
+	Key string
+	// Value is the parsed header value that violated command constraints.
+	Value int
+	// Detail explains the violated constraint in human-readable form.
+	Detail string
 }
 
 func (e invalidHeaderError) Error() string {
@@ -53,10 +63,14 @@ func (e invalidHeaderError) Error() string {
 
 // inconsistentHeaderError reports that share headers disagree on a field value.
 type inconsistentHeaderError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
-	Key      string
-	Got      int
-	Want     int
+	// Key is the PEM header name whose value disagreed.
+	Key string
+	// Got is the parsed header value from the current share.
+	Got int
+	// Want is the header value established by previous shares.
+	Want int
 }
 
 func (e inconsistentHeaderError) Error() string {
@@ -65,10 +79,14 @@ func (e inconsistentHeaderError) Error() string {
 
 // duplicateHeaderValueError reports two shares claiming the same header value.
 type duplicateHeaderValueError struct {
+	// Position is the 1-based position of the duplicate share in the parsed input stream.
 	Position int
+	// Previous is the 1-based position of the earlier share with the same value.
 	Previous int
-	Key      string
-	Value    int
+	// Key is the PEM header name that duplicated an earlier value.
+	Key string
+	// Value is the duplicated parsed header value.
+	Value int
 }
 
 func (e duplicateHeaderValueError) Error() string {
@@ -77,7 +95,9 @@ func (e duplicateHeaderValueError) Error() string {
 
 // tooManySharesError reports more shares than the declared N header.
 type tooManySharesError struct {
+	// Got is the number of shares provided by the caller.
 	Got int
+	// Max is the maximum share count allowed by the encoded N header.
 	Max int
 }
 
@@ -87,9 +107,12 @@ func (e tooManySharesError) Error() string {
 
 // unexpectedBlockTypeError reports a PEM block type other than the expected share type.
 type unexpectedBlockTypeError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
-	Got      string
-	Want     string
+	// Got is the PEM block type found in the current share.
+	Got string
+	// Want is the PEM block type expected by the command.
+	Want string
 }
 
 func (e unexpectedBlockTypeError) Error() string {
@@ -98,6 +121,7 @@ func (e unexpectedBlockTypeError) Error() string {
 
 // emptyShareBodyError reports a share block without payload bytes.
 type emptyShareBodyError struct {
+	// Position is the 1-based share position in the parsed input stream.
 	Position int
 }
 
@@ -108,7 +132,9 @@ func (e emptyShareBodyError) Error() string {
 // insufficientSharesError reports that fewer shares than the encoded threshold
 // were provided.
 type insufficientSharesError struct {
-	Got  int
+	// Got is the number of shares provided by the caller.
+	Got int
+	// Need is the minimum share count required by the encoded threshold.
 	Need int
 }
 

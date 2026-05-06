@@ -16,23 +16,13 @@ import (
 	"github.com/rbee3u/dpass/pkg/helper"
 )
 
-// invalidPayloadLengthError reports payload shorter than nonce plus the GCM tag.
-type invalidPayloadLengthError struct {
-	Got int
-	Min int
-}
-
-func (e invalidPayloadLengthError) Error() string {
-	return fmt.Sprintf("invalid payload length (got %d bytes, must be >= %d bytes)", e.Got, e.Min)
-}
-
-// encryptBackend holds dependencies for testing (injectable nonce source).
+// encryptBackend implements the backend for the encrypt command.
 type encryptBackend struct {
-	// nonceReader supplies gcmStandardNonceSize random bytes for each encryption call.
+	// nonceReader supplies random bytes for the nonce prefix of each encrypted payload.
 	nonceReader io.Reader
 }
 
-// encryptBackendDefault returns a production backend using crypto/rand for nonces.
+// encryptBackendDefault returns the production backend for the encrypt command.
 func encryptBackendDefault() *encryptBackend {
 	return &encryptBackend{nonceReader: rand.Reader}
 }
@@ -71,7 +61,7 @@ func (b *encryptBackend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// encrypt seals plaintext with AES-256-GCM and returns hex payload. In this
+// encrypt seals plaintext with AES-256-GCM and returns a hex payload. In this
 // package, payload means nonce||sealed, where sealed already includes the GCM tag.
 func (b *encryptBackend) encrypt(key, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
@@ -93,10 +83,10 @@ func (b *encryptBackend) encrypt(key, plaintext []byte) ([]byte, error) {
 	return hexPayload, nil
 }
 
-// decryptBackend parses hex payload produced by encrypt.
+// decryptBackend implements the backend for the decrypt command.
 type decryptBackend struct{}
 
-// decryptBackendDefault returns a production decrypt command backend.
+// decryptBackendDefault returns the production backend for the decrypt command.
 func decryptBackendDefault() *decryptBackend {
 	return &decryptBackend{}
 }
@@ -136,8 +126,8 @@ func (b *decryptBackend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// decrypt expects hex payload, where payload means nonce||sealed. The sealed
-// suffix already includes the GCM tag, so decoded payload must be at least nonce plus tag.
+// decrypt opens a hex payload produced by encrypt. In this package, payload
+// means nonce||sealed, where sealed already includes the GCM tag.
 func (b *decryptBackend) decrypt(key, hexPayload []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

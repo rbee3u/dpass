@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func StubIsNotTerminal(t *testing.T, double func(int) bool) {
-	Stub(t, &isNotTerminal, double)
+func StubIsTerminal(t *testing.T, double func(int) bool) {
+	Stub(t, &isTerminal, double)
 }
 
 func StubOpenTerminal(t *testing.T, double func() (*os.File, error)) {

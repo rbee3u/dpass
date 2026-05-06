@@ -7,7 +7,9 @@ import (
 
 // invalidLevelError reports a --level flag outside the accepted QR error-correction levels.
 type invalidLevelError struct {
-	Got     string
+	// Got is the level value provided by the caller.
+	Got string
+	// Allowed lists the accepted QR error-correction levels.
 	Allowed []string
 }
 
@@ -17,8 +19,11 @@ func (e invalidLevelError) Error() string {
 
 // invalidQuietError reports a --quiet flag outside the accepted quiet-zone range.
 type invalidQuietError struct {
+	// Got is the quiet-zone size provided by the caller.
 	Got int
+	// Min is the minimum accepted quiet-zone size.
 	Min int
+	// Max is the maximum accepted quiet-zone size.
 	Max int
 }
 
@@ -28,7 +33,9 @@ func (e invalidQuietError) Error() string {
 
 // inputTooLongError reports a stdin payload larger than the accepted limit.
 type inputTooLongError struct {
+	// Got is the input length in bytes.
 	Got int
+	// Max is the maximum accepted input length in bytes.
 	Max int
 }
 
