@@ -21,33 +21,30 @@ const (
 	levelQ = "Q"
 	// levelH selects QR error-correction level H.
 	levelH = "H"
-
 	// quietDefault sets the default quiet-zone width in modules.
-	quietDefault = 4
+	quietDefault = quietMin
 	// quietMin is the smallest accepted quiet-zone width.
 	quietMin = 4
 	// quietMax is the largest accepted quiet-zone width.
 	quietMax = 9
-	// maxInputBytes is the largest accepted stdin payload size in bytes.
-	maxInputBytes = 1000
-
 	// swapDefault keeps standard black/white output by default.
 	swapDefault = false
+	// maxInputBytes is the largest accepted stdin payload size in bytes.
+	maxInputBytes = 1000
 )
 
-// backend holds error-correction level, quiet zone width, and optional color inversion.
+// backend holds the configured error-correction level, quiet zone width, and
+// optional color inversion.
 type backend struct {
-	// level keeps the user-provided error-correction level string for validation.
+	// level keeps the configured --level value for validation.
 	level string
-	// levelInt is the parsed qr.Level used by the encoder after validation.
-	levelInt qr.Level
 	// quiet is the margin width in modules around the symbol.
 	quiet int
 	// swap inverts black/white when mapping modules to ANSI colors.
 	swap bool
 }
 
-// backendDefault matches common terminal QR settings (level L, quiet 4).
+// backendDefault returns level L, quiet zone 4, and swap false.
 func backendDefault() *backend {
 	return &backend{
 		level: levelDefault,
@@ -56,7 +53,8 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd encodes stdin as a QR symbol and writes terminal graphics to stdout.
+// NewCmd returns the qrcode command. The command reads stdin and writes terminal
+// QR graphics to stdout.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
@@ -95,10 +93,11 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 
 // getResult validates flags, encodes text as QR, and renders ANSI background-color cells.
 func (b *backend) getResult(text string) ([]byte, error) {
-	if err := b.checkFlags(text); err != nil {
+	level, err := b.checkFlags(text)
+	if err != nil {
 		return nil, err
 	}
-	code, err := qr.Encode(text, b.levelInt)
+	code, err := qr.Encode(text, level)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode text: %w", err)
 	}
@@ -116,28 +115,27 @@ func (b *backend) getResult(text string) ([]byte, error) {
 	return result, nil
 }
 
-// checkFlags maps string flags to rsc.io/qr levels and validates quiet zone and input size.
-func (b *backend) checkFlags(text string) error {
+// checkFlags maps configured flag values to rsc.io/qr levels and validates quiet
+// zone and input size in bytes.
+func (b *backend) checkFlags(text string) (qr.Level, error) {
+	var level qr.Level
 	switch b.level {
 	case levelL:
-		b.levelInt = qr.L
+		level = qr.L
 	case levelM:
-		b.levelInt = qr.M
+		level = qr.M
 	case levelH:
-		b.levelInt = qr.H
+		level = qr.H
 	case levelQ:
-		b.levelInt = qr.Q
+		level = qr.Q
 	default:
-		return invalidLevelError{
-			Got:     b.level,
-			Allowed: []string{levelL, levelM, levelQ, levelH},
-		}
+		return 0, invalidLevelError{Got: b.level}
 	}
 	if b.quiet < quietMin || quietMax < b.quiet {
-		return invalidQuietError{Got: b.quiet, Min: quietMin, Max: quietMax}
+		return 0, invalidQuietError{Got: b.quiet}
 	}
 	if len(text) > maxInputBytes {
-		return inputTooLongError{Got: len(text), Max: maxInputBytes}
+		return 0, inputTooLongError{Got: len(text)}
 	}
-	return nil
+	return level, nil
 }

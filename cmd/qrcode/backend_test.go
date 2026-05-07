@@ -72,7 +72,9 @@ func TestBackendErrors(t *testing.T) {
 				var target invalidLevelError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, "X", target.Got)
-				require.Equal(t, []string{levelL, levelM, levelQ, levelH}, target.Allowed)
+				require.Equal(t,
+					`invalid level (got "X", must be one of L / M / Q / H)`,
+					target.Error())
 			},
 		},
 		{
@@ -85,8 +87,9 @@ func TestBackendErrors(t *testing.T) {
 				var target invalidQuietError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, quietMin-1, target.Got)
-				require.Equal(t, quietMin, target.Min)
-				require.Equal(t, quietMax, target.Max)
+				require.Equal(t,
+					"invalid quiet (got 3, must be within [4, 9])",
+					target.Error())
 			},
 		},
 		{
@@ -110,7 +113,9 @@ func TestBackendErrors(t *testing.T) {
 				var target inputTooLongError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, maxInputBytes+1, target.Got)
-				require.Equal(t, maxInputBytes, target.Max)
+				require.Equal(t,
+					"invalid input length (got 1001 bytes, must be <= 1000 bytes)",
+					target.Error())
 			},
 		},
 	}
