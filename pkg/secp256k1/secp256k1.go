@@ -26,8 +26,8 @@ func (curve *Curve) IsOnCurve(x, y *big.Int) bool {
 	return xPart.Cmp(yPart) == 0 // x^3 + b ≡ y^2 (mod p)
 }
 
-// Add returns the affine sum of two points. The sentinel (0, 0) denotes the point
-// at infinity. It panics if any other input point is not on the curve.
+// Add returns the affine sum of two points. The sentinel (0, 0) denotes the
+// point at infinity. It panics if any other input point is not on the curve.
 func (curve *Curve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	if (x1.Sign() != 0 || y1.Sign() != 0) && !curve.IsOnCurve(x1, y1) {
 		panic("secp256k1: attempted operation on invalid point(x1, y1)")
@@ -79,10 +79,10 @@ func (curve *Curve) Double(x1, y1 *big.Int) (*big.Int, *big.Int) {
 	return curve.Add(x1, y1, x1, y1)
 }
 
-// ScalarMult returns k*(x1, y1) using left-to-right double-and-add over k. A zero
-// scalar yields the point-at-infinity sentinel (0, 0). The sentinel (0, 0) is also
-// accepted as the input point at infinity. It panics if any other input point is
-// not on the curve.
+// ScalarMult returns k*(x1, y1) using left-to-right double-and-add over k. A
+// zero scalar yields the point-at-infinity sentinel (0, 0). The sentinel (0, 0)
+// is also accepted as the input point at infinity. It panics if any other input
+// point is not on the curve.
 func (curve *Curve) ScalarMult(x1, y1 *big.Int, k []byte) (*big.Int, *big.Int) {
 	x, y := new(big.Int), new(big.Int)
 	for _, b := range k {

@@ -37,8 +37,8 @@ type backend struct {
 	// account is the account number before hardening, so it must stay below the
 	// hardened boundary.
 	account uint32
-	// change selects the trailing chain, typically 0 for external receive addresses
-	// and 1 for internal change addresses.
+	// change selects the trailing chain, typically 0 for external receive
+	// addresses and 1 for internal change addresses.
 	change uint32
 	// index selects the child within the chosen change chain.
 	index uint32
@@ -56,8 +56,8 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Dogecoin address or WIF-encoded
-// private key.
+// NewCmd reads a mnemonic from stdin and prints a Dogecoin address or
+// WIF-encoded private key.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
@@ -108,7 +108,8 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 }
 
 // getResult derives the BIP32 secp256k1 private key at
-// m/44'/3'/account'/change/index and formats a Dogecoin address or WIF-encoded private key.
+// m/44'/3'/account'/change/index and formats a Dogecoin address or WIF-encoded
+// private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
@@ -133,8 +134,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// encodeSk adds the Dogecoin compressed WIF payload (0x9e prefix, 0x01 suffix) and
-// Base58Check-encodes the result.
+// encodeSk adds the Dogecoin compressed WIF payload (0x9e prefix, 0x01 suffix)
+// and Base58Check-encodes the result.
 func encodeSk(sk []byte) string {
 	data := slices.Concat([]byte{158}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]

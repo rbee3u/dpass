@@ -1,5 +1,5 @@
-// Package tron provides a CLI command for deriving Tron addresses and hex-encoded
-// private keys from mnemonics.
+// Package tron provides a CLI command for deriving Tron addresses and
+// hex-encoded private keys from mnemonics.
 package tron
 
 import (
@@ -97,8 +97,9 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the BIP32 secp256k1 private key at m/44'/195'/account'/0/index
-// and formats a Tron address or a hex-encoded private key.
+// getResult derives the BIP32 secp256k1 private key at
+// m/44'/195'/account'/0/index and formats a Tron address or a hex-encoded
+// private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
@@ -123,8 +124,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// pkToAddress hashes the uncompressed pubkey with Keccak-256, prefixes the 20-byte
-// payload with version byte 0x41, and Base58Check-encodes the result.
+// pkToAddress hashes the uncompressed pubkey with Keccak-256, prefixes the
+// 20-byte payload with version byte 0x41, and Base58Check-encodes the result.
 func pkToAddress(x, y *big.Int) string {
 	pk := make([]byte, 64)
 	x.FillBytes(pk[:32])

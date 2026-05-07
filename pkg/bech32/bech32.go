@@ -74,10 +74,10 @@ func (e InvalidWitnessProgramLengthError) Error() string {
 	)
 }
 
-// Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters. vs
-// is prepended to the payload as 5-bit values (for example, a witness version),
-// while in is repacked from bytes into 5-bit groups before the checksum is
-// appended. It returns an error when hrp or any 5-bit value is invalid.
+// Encode returns a Bech32 string: hrp + "1" + payload + 6 checksum characters.
+// vs is prepended to the payload as 5-bit values (for example, a witness
+// version), while in is repacked from bytes into 5-bit groups before the
+// checksum is appended. It returns an error when hrp or any 5-bit value is invalid.
 func Encode(hrp string, vs, in []byte) (string, error) {
 	return encode(hrp, vs, in, bech32ChecksumConstant)
 }

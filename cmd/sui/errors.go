@@ -16,8 +16,8 @@ func (e invalidAccountError) Error() string {
 	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
 }
 
-// invalidChangeError reports a --change flag outside the accepted range. Use -1 to
-// omit the change segment and any following derivation-path segments.
+// invalidChangeError reports a --change flag outside the accepted range. Use -1
+// to omit the change segment and any following derivation-path segments.
 type invalidChangeError struct {
 	// Got is the change value provided by the caller.
 	Got int32

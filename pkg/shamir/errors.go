@@ -14,13 +14,13 @@ type SplitConstraintError struct {
 
 func (e SplitConstraintError) Error() string {
 	return fmt.Sprintf(
-		"shamir: invalid split parameters (got threshold=%d, parts=%d, want %d <= threshold <= parts <= %d)",
-		e.Threshold, e.Parts, MinShares, MaxShares,
+		"shamir: invalid split parameters (got parts=%d, threshold=%d, want %d <= threshold <= parts <= %d)",
+		e.Parts, e.Threshold, MinShares, MaxShares,
 	)
 }
 
-// SharesTooFewError reports that Combine received fewer than MinShares shares, so
-// interpolation cannot begin.
+// SharesTooFewError reports that Combine received fewer than MinShares shares,
+// so interpolation cannot begin.
 type SharesTooFewError struct {
 	// Count is the number of shares supplied to Combine.
 	Count int
@@ -43,9 +43,9 @@ func (e ShareTooShortError) Error() string {
 	return fmt.Sprintf("shamir: share %d: invalid length (got %d, must be >= %d)", e.Index, e.Length, MinShareLength)
 }
 
-// ShareLengthMismatchError reports that Combine received a share whose length does
-// not match the first validated share, so all inputs cannot describe the same
-// encoded secret.
+// ShareLengthMismatchError reports that Combine received a share whose length
+// does not match the first validated share, so all inputs cannot describe the
+// same encoded secret.
 type ShareLengthMismatchError struct {
 	// Index is the zero-based position of the mismatched share in the input slice.
 	Index int

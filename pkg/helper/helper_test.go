@@ -174,13 +174,11 @@ func TestReadPasswordErrors(t *testing.T) {
 		helper.StubReadPassword(t, func(int) ([]byte, error) {
 			return []byte("secret"), nil
 		})
-
 		password, err := helper.ReadPassword("Enter password: ")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to close terminal used for password input")
 		require.ErrorIs(t, err, expected)
 		require.Nil(t, password)
-
 		prompt, err := io.ReadAll(promptReader)
 		require.NoError(t, err)
 		require.Equal(t, "Enter password: \n", string(prompt))

@@ -81,8 +81,8 @@ func (b *backend) checkFlags() error {
 	return nil
 }
 
-// runE reads a mnemonic from stdin and prints an Ethereum address or a hex-encoded
-// private key.
+// runE reads a mnemonic from stdin and prints an Ethereum address or a
+// hex-encoded private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -98,8 +98,9 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the BIP32 secp256k1 private key at m/44'/60'/account'/0/index
-// and formats an Ethereum address or a hex-encoded private key.
+// getResult derives the BIP32 secp256k1 private key at
+// m/44'/60'/account'/0/index and formats an Ethereum address or a hex-encoded
+// private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
@@ -124,8 +125,8 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	return pkToAddress(secp256k1.S256().ScalarBaseMult(sk)), nil
 }
 
-// pkToAddress hashes the uncompressed pubkey with Keccak-256, applies the EIP-55
-// checksum to the hex payload, and returns the 0x-prefixed address.
+// pkToAddress hashes the uncompressed pubkey with Keccak-256, applies the
+// EIP-55 checksum to the hex payload, and returns the 0x-prefixed address.
 func pkToAddress(x, y *big.Int) string {
 	pk := make([]byte, 64)
 	x.FillBytes(pk[:32])

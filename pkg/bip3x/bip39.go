@@ -19,16 +19,16 @@ const (
 	// BitsPerWord is the bit width of one BIP-39 word index in the embedded list.
 	BitsPerWord = 11
 
-	// EntropyBitsStep is the entropy size granularity in bits (one word needs 11 bits;
-	// checksum scales with entropy).
+	// EntropyBitsStep is the entropy size granularity in bits (one word needs 11
+	// bits; checksum scales with entropy).
 	EntropyBitsStep = 32
 	// EntropyBitsMin is the smallest entropy size accepted by BIP-39.
 	EntropyBitsMin = 4 * EntropyBitsStep
 	// EntropyBitsMax is the largest entropy size accepted by BIP-39.
 	EntropyBitsMax = 8 * EntropyBitsStep
 
-	// SentenceBitsStep is mnemonic length granularity: 11 bits per word plus checksum
-	// bits per 32 bits of entropy.
+	// SentenceBitsStep is mnemonic length granularity: 11 bits per word plus
+	// checksum bits per 32 bits of entropy.
 	SentenceBitsStep = 33
 	// SentenceBitsMin is the bit length of the shortest supported mnemonic sentence.
 	SentenceBitsMin = 4 * SentenceBitsStep
@@ -102,8 +102,8 @@ func generateWord2Value() map[string]uint32 {
 	return word2value
 }
 
-// CreateEntropyRandomly returns cryptographically random entropy; entropySize is
-// the length in bits.
+// CreateEntropyRandomly returns cryptographically random entropy; entropySize
+// is the length in bits.
 func CreateEntropyRandomly(entropySize int) ([]byte, error) {
 	if entropySize%EntropyBitsStep != 0 || entropySize < EntropyBitsMin || entropySize > EntropyBitsMax {
 		return nil, InvalidEntropyBitsError{Bits: entropySize}

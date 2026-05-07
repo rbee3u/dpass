@@ -42,14 +42,14 @@ const (
 
 // backend holds user-configurable derivation path segments and output mode.
 type backend struct {
-	// purpose selects the purpose path segment and, therefore, the address format for
-	// m/purpose'/0'/account'/change/index.
+	// purpose selects the purpose path segment and, therefore, the address format
+	// for m/purpose'/0'/account'/change/index.
 	purpose uint32
 	// account is the account number before hardening, so it must stay below the
 	// hardened boundary.
 	account uint32
-	// change selects the trailing chain, typically 0 for external receive addresses
-	// and 1 for internal change addresses.
+	// change selects the trailing chain, typically 0 for external receive
+	// addresses and 1 for internal change addresses.
 	change uint32
 	// index selects the child within the chosen change chain.
 	index uint32
@@ -128,8 +128,8 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 }
 
 // getResult derives the BIP32 secp256k1 private key at
-// m/purpose'/0'/account'/change/index and formats a Bitcoin address or WIF-encoded
-// private key.
+// m/purpose'/0'/account'/change/index and formats a Bitcoin address or
+// WIF-encoded private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
@@ -181,8 +181,8 @@ func prepareClassic(sk []byte) ([]byte, []byte) {
 	return sk, pkHash
 }
 
-// prepareTaproot normalizes the internal key to even Y, applies the TapTweak hash,
-// and returns the tweaked private key plus x-only output key.
+// prepareTaproot normalizes the internal key to even Y, applies the TapTweak
+// hash, and returns the tweaked private key plus x-only output key.
 func prepareTaproot(sk0Bytes []byte) ([]byte, []byte) {
 	curve := secp256k1.S256()
 	sk := new(big.Int).SetBytes(sk0Bytes)
@@ -213,8 +213,8 @@ func prepareTaproot(sk0Bytes []byte) ([]byte, []byte) {
 	return oskBytes, opkBytes
 }
 
-// encodeSk adds the Bitcoin mainnet compressed WIF payload and Base58Check-encodes
-// the result.
+// encodeSk adds the Bitcoin mainnet compressed WIF payload and
+// Base58Check-encodes the result.
 func encodeSk(sk []byte) string {
 	data := slices.Concat([]byte{128}, sk, []byte{1})
 	digest := hashx.Sha256Sum(hashx.Sha256Sum(data))[:4]
@@ -229,8 +229,8 @@ func pkHashToAddress44(pkHash []byte) (string, error) {
 	return base58.Encode(slices.Concat(data, digest)), nil
 }
 
-// pkHashToAddress49 wraps HASH160(compressed pubkey) in P2WPKH-in-P2SH, hashes the
-// script, and Base58Check-encodes the result.
+// pkHashToAddress49 wraps HASH160(compressed pubkey) in P2WPKH-in-P2SH, hashes
+// the script, and Base58Check-encodes the result.
 func pkHashToAddress49(pkHash []byte) (string, error) {
 	pkScript := slices.Concat([]byte{0, 20}, pkHash)
 	data := slices.Concat([]byte{5}, hashx.RipeMD160Sum(hashx.Sha256Sum(pkScript)))
@@ -248,8 +248,8 @@ func pkHashToAddress84(pkHash []byte) (string, error) {
 	return address, nil
 }
 
-// pkToAddress86 encodes the tweaked x-only pubkey as a witness version 1 Bech32m
-// address for BIP86.
+// pkToAddress86 encodes the tweaked x-only pubkey as a witness version 1
+// Bech32m address for BIP86.
 func pkToAddress86(pk []byte) (string, error) {
 	address, err := bech32.EncodeSegWit("bc", 1, pk)
 	if err != nil {

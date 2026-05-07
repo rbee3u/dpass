@@ -76,8 +76,8 @@ func (b *splitBackend) runE(_ *cobra.Command, _ []string) error {
 		if len(b.output) == 0 {
 			err = pem.Encode(os.Stdout, blocks[index])
 		} else {
-			path := fmt.Sprintf("%s-%v-%v-%v.txt", b.output, b.parts, b.threshold, index)
-			err = os.WriteFile(path, pem.EncodeToMemory(blocks[index]), 0o600)
+			name := fmt.Sprintf("%s-%v-%v-%v.txt", b.output, b.parts, b.threshold, index)
+			err = os.WriteFile(name, pem.EncodeToMemory(blocks[index]), 0o600)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to write share %d: %w", index, err)
@@ -155,7 +155,9 @@ func (b *combineBackend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// combine enforces threshold M from headers before delegating to shamir.Combine.
+// combine validates per-share metadata, enforces cross-share header
+// consistency, and checks the encoded threshold before delegating share
+// encoding validation to shamir.Combine.
 func (b *combineBackend) combine(blocks []*pem.Block) ([]byte, error) {
 	if len(blocks) == 0 {
 		return nil, errNoSharesProvided
@@ -163,9 +165,6 @@ func (b *combineBackend) combine(blocks []*pem.Block) ([]byte, error) {
 	parts, threshold, index, err := validateBlock(blocks[0], 0)
 	if err != nil {
 		return nil, err
-	}
-	if len(blocks) > parts {
-		return nil, tooManySharesError{Got: len(blocks), Max: parts}
 	}
 	indices := map[int]int{index: 0}
 	for i := 1; i < len(blocks); i++ {
@@ -180,7 +179,7 @@ func (b *combineBackend) combine(blocks []*pem.Block) ([]byte, error) {
 			return nil, inconsistentHeaderError{Pos: i, Key: "M", Got: currThreshold, Want: threshold}
 		}
 		if prevPos, exists := indices[currIndex]; exists {
-			return nil, duplicateHeaderValueError{Pos: i, Key: "I", Value: currIndex, PrevPos: prevPos}
+			return nil, duplicateHeaderError{Pos: i, Key: "I", Value: currIndex, PrevPos: prevPos}
 		}
 		indices[currIndex] = i
 	}
@@ -198,58 +197,39 @@ func (b *combineBackend) combine(blocks []*pem.Block) ([]byte, error) {
 	return secret, nil
 }
 
-// validateBlock validates a single PEM block and extracts its metadata.
+// validateBlock validates a single PEM block's headers and extracts their values.
 func validateBlock(block *pem.Block, pos int) (int, int, int, error) {
 	if block.Type != "SHAMIR" {
-		return 0, 0, 0, unexpectedBlockTypeError{
-			Pos: pos, Got: block.Type, Want: "SHAMIR",
-		}
+		return 0, 0, 0, unexpectedBlockTypeError{Pos: pos, Got: block.Type, Want: "SHAMIR"}
 	}
-	parts, err := parseHeader(block, pos, "N")
+	parts, err := extractHeader(block, pos, "N")
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	if parts < shamir.MinShares || parts > shamir.MaxShares {
-		return 0, 0, 0, invalidHeaderError{
-			Pos: pos, Key: "N", Value: parts,
-			Detail: fmt.Sprintf("must be within [%d, %d]", shamir.MinShares, shamir.MaxShares),
-		}
-	}
-	threshold, err := parseHeader(block, pos, "M")
+	threshold, err := extractHeader(block, pos, "M")
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	if threshold < shamir.MinShares || threshold > parts {
-		return 0, 0, 0, invalidHeaderError{
-			Pos: pos, Key: "M", Value: threshold,
-			Detail: fmt.Sprintf("must be within [%d, %d]", shamir.MinShares, parts),
-		}
-	}
-	index, err := parseHeader(block, pos, "I")
+	index, err := extractHeader(block, pos, "I")
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	if index < 0 || index > parts-1 {
-		return 0, 0, 0, invalidHeaderError{
-			Pos: pos, Key: "I", Value: index,
-			Detail: fmt.Sprintf("must be within [0, %d]", parts-1),
-		}
-	}
-	if len(block.Bytes) < shamir.MinShareLength {
-		return 0, 0, 0, emptyShareBodyError{Pos: pos}
+	if !(shamir.MinShares <= threshold && threshold <= parts && parts <= shamir.MaxShares &&
+		0 <= index && index < parts) {
+		return 0, 0, 0, invalidHeaderError{Pos: pos, Parts: parts, Threshold: threshold, Index: index}
 	}
 	return parts, threshold, index, nil
 }
 
-// parseHeader parses an integer PEM header value for the share at the given position.
-func parseHeader(block *pem.Block, pos int, key string) (int, error) {
-	value, ok := block.Headers[key]
-	if !ok {
+// extractHeader parses an integer PEM header value for the share at the given position.
+func extractHeader(block *pem.Block, pos int, key string) (int, error) {
+	value := block.Headers[key]
+	if len(value) == 0 {
 		return 0, missingHeaderError{Pos: pos, Key: key}
 	}
 	number, err := strconv.Atoi(value)
 	if err != nil {
-		return 0, unparsableHeaderError{Pos: pos, Key: key, Value: value, Err: err}
+		return 0, malformedHeaderError{Pos: pos, Key: key, Value: value, Err: err}
 	}
 	return number, nil
 }

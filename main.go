@@ -22,8 +22,8 @@ import (
 // version is the CLI release string shown by --version.
 const version = "v1.5.4"
 
-// main builds and executes the root CLI; it prints errors to stderr and exits with
-// status 1 on failure.
+// main builds and executes the root CLI; it prints errors to stderr and exits
+// with status 1 on failure.
 func main() {
 	cmd := &cobra.Command{
 		Use:   "dpass",

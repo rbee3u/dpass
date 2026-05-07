@@ -1,5 +1,6 @@
 // Package solana provides a CLI command for deriving Solana addresses and
-// Base58-encoded Ed25519 keypairs from mnemonics. On Solana, an address is the public key.
+// Base58-encoded Ed25519 keypairs from mnemonics. On Solana, an address is the
+// public key.
 package solana
 
 import (
@@ -39,8 +40,8 @@ type backend struct {
 	// account is the account number before hardening, so it must stay below the
 	// hardened boundary.
 	account uint32
-	// change selects the optional trailing hardened chain; set it to -1 to omit this
-	// segment and any following derivation-path segments.
+	// change selects the optional trailing hardened chain; set it to -1 to omit
+	// this segment and any following derivation-path segments.
 	change int32
 	// index selects the child within the chosen change chain; set it to -1 to omit
 	// this final derivation-path segment.
@@ -49,8 +50,8 @@ type backend struct {
 	secret bool
 }
 
-// backendDefault returns the default Solana BIP44 derivation settings with change
-// and index enabled at zero.
+// backendDefault returns the default Solana BIP44 derivation settings with
+// change and index enabled at zero.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
@@ -60,8 +61,8 @@ func backendDefault() *backend {
 	}
 }
 
-// NewCmd reads a mnemonic from stdin and prints a Solana address or Base58-encoded
-// Ed25519 keypair.
+// NewCmd reads a mnemonic from stdin and prints a Solana address or
+// Base58-encoded Ed25519 keypair.
 func NewCmd() *cobra.Command {
 	b := backendDefault()
 	cmd := &cobra.Command{
@@ -100,8 +101,8 @@ func (b *backend) checkFlags() error {
 	return nil
 }
 
-// runE reads a mnemonic from stdin and prints a Solana address or Base58-encoded
-// Ed25519 keypair.
+// runE reads a mnemonic from stdin and prints a Solana address or
+// Base58-encoded Ed25519 keypair.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -117,8 +118,8 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the SLIP-0010 Ed25519 private key at m/44'/501'/account' with
-// optional /change' and /index' suffixes, and formats a Solana address or
+// getResult derives the SLIP-0010 Ed25519 private key at m/44'/501'/account'
+// with optional /change' and /index' suffixes, and formats a Solana address or
 // Base58-encoded Ed25519 keypair.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {

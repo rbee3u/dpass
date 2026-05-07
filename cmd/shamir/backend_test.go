@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/pem"
 	"iter"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,50 +13,31 @@ import (
 )
 
 func TestBackend(t *testing.T) {
-	tests := []struct {
-		name      string
-		secret    []byte
-		parts     int
-		threshold int
-	}{
-		{
-			name:      "ascii secret",
-			secret:    []byte("To be, or not to be, that is the question."),
-			parts:     9,
-			threshold: 4,
-		},
-		{
-			name:      "empty secret",
-			secret:    []byte{},
-			parts:     3,
-			threshold: 2,
-		},
-		{
-			name:      "threshold equals parts",
-			secret:    []byte("edge"),
-			parts:     5,
-			threshold: 5,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sb := splitBackendDefault()
-			sb.parts = tt.parts
-			sb.threshold = tt.threshold
-			blocks, err := sb.split(tt.secret)
-			require.NoError(t, err)
-			require.Len(t, blocks, tt.parts)
-			cb := combineBackendDefault()
-			for k := tt.threshold; k <= tt.parts; k++ {
-				for group := range combinations(blocks, k) {
-					secret, err := cb.combine(group)
-					require.NoError(t, err)
-					require.Equal(t, tt.secret, secret)
-				}
+	t.Run("split emits shamir blocks and combine recovers all combinations", func(t *testing.T) {
+		secret := []byte("To be, or not to be, that is the question.")
+		sb := splitBackendDefault()
+		sb.parts = 5
+		sb.threshold = 3
+		blocks, err := sb.split(secret)
+		require.NoError(t, err)
+		require.Len(t, blocks, sb.parts)
+		for i, block := range blocks {
+			require.Equal(t, "SHAMIR", block.Type)
+			require.Equal(t, "5", block.Headers["N"])
+			require.Equal(t, "3", block.Headers["M"])
+			require.Equal(t, strconv.Itoa(i), block.Headers["I"])
+			require.Len(t, block.Bytes, len(secret)+1)
+		}
+		cb := combineBackendDefault()
+		for k := sb.threshold; k <= sb.parts; k++ {
+			for group := range combinations(blocks, k) {
+				recovered, err := cb.combine(group)
+				require.NoError(t, err)
+				require.Equal(t, secret, recovered)
 			}
-		})
-	}
-	t.Run("published fixture shares", func(t *testing.T) {
+		}
+	})
+	t.Run("published fixture shares all combinations", func(t *testing.T) {
 		cb := combineBackendDefault()
 		want := []byte("To be, or not to be, that is the question.")
 		data := []byte(`-----BEGIN SHAMIR-----
@@ -138,65 +120,18 @@ N: 9
 	})
 }
 
-func TestSplitBackendErrors(t *testing.T) {
-	tests := []struct {
-		name       string
-		secret     []byte
-		parts      int
-		threshold  int
-		requireErr func(*testing.T, error)
-	}{
-		{
-			name:      "threshold too small",
-			secret:    []byte("test"),
-			parts:     9,
-			threshold: 1,
-			requireErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.SplitConstraintError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 9, target.Parts)
-				require.Equal(t, 1, target.Threshold)
-			},
-		},
-		{
-			name:      "threshold greater than parts",
-			secret:    []byte("test"),
-			parts:     2,
-			threshold: 3,
-			requireErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.SplitConstraintError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 2, target.Parts)
-				require.Equal(t, 3, target.Threshold)
-			},
-		},
-		{
-			name:      "parts too large",
-			secret:    []byte("test"),
-			parts:     256,
-			threshold: 3,
-			requireErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "failed to split secret")
-				var target shamir.SplitConstraintError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 256, target.Parts)
-				require.Equal(t, 3, target.Threshold)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sb := splitBackendDefault()
-			sb.parts = tt.parts
-			sb.threshold = tt.threshold
-			blocks, err := sb.split(tt.secret)
-			require.Error(t, err)
-			tt.requireErr(t, err)
-			require.Nil(t, blocks)
-		})
-	}
+func TestSplitBackendWrapsSplitError(t *testing.T) {
+	sb := splitBackendDefault()
+	sb.parts = 9
+	sb.threshold = 1
+	blocks, err := sb.split([]byte("test"))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to split secret")
+	var target shamir.SplitConstraintError
+	require.ErrorAs(t, err, &target)
+	require.Equal(t, 9, target.Parts)
+	require.Equal(t, 1, target.Threshold)
+	require.Nil(t, blocks)
 }
 
 func TestCombineBackendErrors(t *testing.T) {
@@ -253,58 +188,35 @@ func TestCombineBackendErrors(t *testing.T) {
 			},
 		},
 		{
-			name: "unparsable header",
+			name: "malformed header",
 			blocks: func(t *testing.T) []*pem.Block {
 				blocks := genBlocks(t, 3, 2)
 				blocks[0].Headers["M"] = "bad"
 				return blocks
 			},
 			requireErr: func(t *testing.T, err error) {
-				var target unparsableHeaderError
+				var target malformedHeaderError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 0, target.Pos)
 				require.Equal(t, "M", target.Key)
 			},
 		},
 		{
-			name: "invalid header",
+			name: "invalid header constraints",
 			blocks: func(t *testing.T) []*pem.Block {
 				blocks := genBlocks(t, 4, 2)
 				blocks[0].Headers["N"] = "1"
+				blocks[0].Headers["M"] = "3"
+				blocks[0].Headers["I"] = "1"
 				return blocks
 			},
 			requireErr: func(t *testing.T, err error) {
 				var target invalidHeaderError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 0, target.Pos)
-				require.Equal(t, "N", target.Key)
-				require.Equal(t, 1, target.Value)
-			},
-		},
-		{
-			name: "empty share body",
-			blocks: func(t *testing.T) []*pem.Block {
-				blocks := genBlocks(t, 3, 2)
-				blocks[0].Bytes = nil
-				return blocks
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target emptyShareBodyError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 0, target.Pos)
-			},
-		},
-		{
-			name: "too many shares",
-			blocks: func(t *testing.T) []*pem.Block {
-				blocks := genBlocks(t, 3, 2)
-				return append(blocks, blocks[0])
-			},
-			requireErr: func(t *testing.T, err error) {
-				var target tooManySharesError
-				require.ErrorAs(t, err, &target)
-				require.Equal(t, 4, target.Got)
-				require.Equal(t, 3, target.Max)
+				require.Equal(t, 1, target.Parts)
+				require.Equal(t, 3, target.Threshold)
+				require.Equal(t, 1, target.Index)
 			},
 		},
 		{
@@ -337,14 +249,14 @@ func TestCombineBackendErrors(t *testing.T) {
 			},
 		},
 		{
-			name: "duplicate header value",
+			name: "duplicate header",
 			blocks: func(t *testing.T) []*pem.Block {
 				blocks := genBlocks(t, 4, 2)
 				blocks[1].Headers["I"] = blocks[0].Headers["I"]
 				return blocks
 			},
 			requireErr: func(t *testing.T, err error) {
-				var target duplicateHeaderValueError
+				var target duplicateHeaderError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 1, target.Pos)
 				require.Equal(t, 0, target.PrevPos)

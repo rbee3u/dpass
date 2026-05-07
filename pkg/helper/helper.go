@@ -22,9 +22,9 @@ var (
 	readPassword = term.ReadPassword
 )
 
-// ReadPassword prints prompt, reads a line without echo when possible, and appends
-// a trailing newline after a successful read. When stdin is not a TTY, it reads
-// from /dev/tty so callers can keep stdin reserved for piped command data.
+// ReadPassword prints prompt, reads a line without echo when possible, and
+// appends a trailing newline after a successful read. When stdin is not a TTY,
+// it reads from /dev/tty so callers can keep stdin reserved for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
 	fd, promptWriter := syscall.Stdin, io.Writer(os.Stderr)
 	if !isTerminal(fd) {

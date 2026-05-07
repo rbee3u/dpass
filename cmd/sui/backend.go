@@ -1,5 +1,5 @@
-// Package sui provides a CLI command for deriving Sui addresses and Bech32-encoded
-// Sui private keys with the suiprivkey prefix from mnemonics.
+// Package sui provides a CLI command for deriving Sui addresses and
+// Bech32-encoded Sui private keys with the suiprivkey prefix from mnemonics.
 package sui
 
 import (
@@ -42,8 +42,8 @@ type backend struct {
 	// account is the account number before hardening, so it must stay below the
 	// hardened boundary.
 	account uint32
-	// change selects the optional trailing hardened chain; set it to -1 to omit this
-	// segment and any following derivation-path segments.
+	// change selects the optional trailing hardened chain; set it to -1 to omit
+	// this segment and any following derivation-path segments.
 	change int32
 	// index selects the child within the chosen change chain; set it to -1 to omit
 	// this final derivation-path segment.
@@ -52,8 +52,8 @@ type backend struct {
 	secret bool
 }
 
-// backendDefault returns the default Sui BIP44 derivation settings with change and
-// index enabled at zero.
+// backendDefault returns the default Sui BIP44 derivation settings with change
+// and index enabled at zero.
 func backendDefault() *backend {
 	return &backend{
 		account: accountDefault,
@@ -103,8 +103,8 @@ func (b *backend) checkFlags() error {
 	return nil
 }
 
-// runE reads a mnemonic from stdin and prints a Sui address or Bech32-encoded Sui
-// private key.
+// runE reads a mnemonic from stdin and prints a Sui address or Bech32-encoded
+// Sui private key.
 func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	mnemonic, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -120,8 +120,8 @@ func (b *backend) runE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// getResult derives the SLIP-0010 Ed25519 private key at m/44'/784'/account' with
-// optional /change' and /index' suffixes, and formats a Sui address or
+// getResult derives the SLIP-0010 Ed25519 private key at m/44'/784'/account'
+// with optional /change' and /index' suffixes, and formats a Sui address or
 // Bech32-encoded Sui private key.
 func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
