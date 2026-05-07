@@ -13,7 +13,8 @@ import (
 
 	"github.com/rbee3u/dpass/pkg/base58"
 	"github.com/rbee3u/dpass/pkg/bech32"
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip32"
+	"github.com/rbee3u/dpass/pkg/bip39"
 	"github.com/rbee3u/dpass/pkg/hashx"
 	"github.com/rbee3u/dpass/pkg/secp256k1"
 )
@@ -98,13 +99,13 @@ func (b *backend) checkFlags() error {
 	if !slices.Contains(allowed, b.purpose) {
 		return invalidPurposeError{Got: b.purpose, Allowed: allowed}
 	}
-	if b.account >= bip3x.FirstHardenedChild {
+	if b.account >= bip32.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
 	if b.change != 0 && b.change != 1 {
 		return invalidChangeError{Got: b.change}
 	}
-	if b.index >= bip3x.FirstHardenedChild {
+	if b.index >= bip32.FirstHardenedChild {
 		return invalidIndexError{Got: b.index}
 	}
 	return nil
@@ -134,14 +135,14 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
-	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
+	seed, err := bip39.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to derive seed from mnemonic: %w", err)
 	}
-	sk, err := bip3x.Secp256k1DeriveSk(seed, []uint32{
-		b.purpose + bip3x.FirstHardenedChild,
-		0 + bip3x.FirstHardenedChild,
-		b.account + bip3x.FirstHardenedChild,
+	sk, err := bip32.Secp256k1DeriveSk(seed, []uint32{
+		b.purpose + bip32.FirstHardenedChild,
+		0 + bip32.FirstHardenedChild,
+		b.account + bip32.FirstHardenedChild,
 		b.change,
 		b.index,
 	})

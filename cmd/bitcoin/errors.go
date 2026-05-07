@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip32"
 )
 
 // invalidPurposeError reports a --purpose flag outside the accepted BIP purposes.
@@ -31,7 +31,7 @@ type invalidAccountError struct {
 }
 
 func (e invalidAccountError) Error() string {
-	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip32.FirstHardenedChild)
 }
 
 // invalidChangeError reports a --change flag outside the external/internal chain set.
@@ -51,5 +51,5 @@ type invalidIndexError struct {
 }
 
 func (e invalidIndexError) Error() string {
-	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip32.FirstHardenedChild)
 }

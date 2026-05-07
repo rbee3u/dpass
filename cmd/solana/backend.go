@@ -12,7 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rbee3u/dpass/pkg/base58"
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip32"
+	"github.com/rbee3u/dpass/pkg/bip39"
 )
 
 const (
@@ -86,7 +87,7 @@ func NewCmd() *cobra.Command {
 
 // checkFlags validates CLI derivation-path inputs and Solana-specific omission rules.
 func (b *backend) checkFlags() error {
-	if b.account >= bip3x.FirstHardenedChild {
+	if b.account >= bip32.FirstHardenedChild {
 		return invalidAccountError{Got: b.account}
 	}
 	if b.change < changeIgnore {
@@ -125,22 +126,22 @@ func (b *backend) getResult(mnemonic string) (string, error) {
 	if err := b.checkFlags(); err != nil {
 		return "", err
 	}
-	seed, err := bip3x.MnemonicToSeed(mnemonic, "")
+	seed, err := bip39.MnemonicToSeed(mnemonic, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to convert mnemonic to seed: %w", err)
 	}
 	path := []uint32{
-		purposeDefault + bip3x.FirstHardenedChild,
-		coinDefault + bip3x.FirstHardenedChild,
-		b.account + bip3x.FirstHardenedChild,
+		purposeDefault + bip32.FirstHardenedChild,
+		coinDefault + bip32.FirstHardenedChild,
+		b.account + bip32.FirstHardenedChild,
 	}
 	if b.change != changeIgnore {
-		path = append(path, uint32(b.change)+bip3x.FirstHardenedChild)
+		path = append(path, uint32(b.change)+bip32.FirstHardenedChild)
 	}
 	if b.index != indexIgnore {
-		path = append(path, uint32(b.index)+bip3x.FirstHardenedChild)
+		path = append(path, uint32(b.index)+bip32.FirstHardenedChild)
 	}
-	sk, err := bip3x.Ed25519DeriveSk(seed, path)
+	sk, err := bip32.Ed25519DeriveSk(seed, path)
 	if err != nil {
 		return "", fmt.Errorf("failed to derive private key: %w", err)
 	}

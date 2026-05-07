@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip39"
 )
 
 func TestBackend(t *testing.T) {
@@ -22,7 +22,7 @@ func TestBackend(t *testing.T) {
 		},
 		{
 			name:      "minimum size",
-			size:      bip3x.EntropyBitsMin,
+			size:      bip39.EntropyBitsMin,
 			wordCount: 12,
 		},
 		{
@@ -38,7 +38,7 @@ func TestBackend(t *testing.T) {
 			result, err := b.getResult()
 			require.NoError(t, err)
 			require.Len(t, strings.Fields(result), tt.wordCount)
-			_, err = bip3x.MnemonicToSeed(result, "")
+			_, err = bip39.MnemonicToSeed(result, "")
 			require.NoError(t, err)
 		})
 	}
@@ -53,37 +53,37 @@ func TestBackendErrors(t *testing.T) {
 		{
 			name: "below minimum",
 			setup: func(b *backend) {
-				b.size = bip3x.EntropyBitsMin - bip3x.EntropyBitsStep
+				b.size = bip39.EntropyBitsMin - bip39.EntropyBitsStep
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to generate random entropy")
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.EntropyBitsMin-bip3x.EntropyBitsStep, target.Bits)
+				require.Equal(t, bip39.EntropyBitsMin-bip39.EntropyBitsStep, target.Bits)
 			},
 		},
 		{
 			name: "above maximum",
 			setup: func(b *backend) {
-				b.size = bip3x.EntropyBitsMax + bip3x.EntropyBitsStep
+				b.size = bip39.EntropyBitsMax + bip39.EntropyBitsStep
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to generate random entropy")
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.EntropyBitsMax+bip3x.EntropyBitsStep, target.Bits)
+				require.Equal(t, bip39.EntropyBitsMax+bip39.EntropyBitsStep, target.Bits)
 			},
 		},
 		{
 			name: "invalid step",
 			setup: func(b *backend) {
-				b.size = bip3x.EntropyBitsMin + 1
+				b.size = bip39.EntropyBitsMin + 1
 			},
 			requireErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "failed to generate random entropy")
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.EntropyBitsMin+1, target.Bits)
+				require.Equal(t, bip39.EntropyBitsMin+1, target.Bits)
 			},
 		},
 	}

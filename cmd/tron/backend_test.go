@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip32"
 )
 
 func TestBackend(t *testing.T) {
@@ -72,23 +72,23 @@ func TestBackendErrors(t *testing.T) {
 		{
 			name: "invalid account",
 			setup: func(b *backend) {
-				b.account = bip3x.FirstHardenedChild
+				b.account = bip32.FirstHardenedChild
 			},
 			requireErr: func(t *testing.T, err error) {
 				var target invalidAccountError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
+				require.Equal(t, bip32.FirstHardenedChild, target.Got)
 			},
 		},
 		{
 			name: "invalid index",
 			setup: func(b *backend) {
-				b.index = bip3x.FirstHardenedChild
+				b.index = bip32.FirstHardenedChild
 			},
 			requireErr: func(t *testing.T, err error) {
 				var target invalidIndexError
 				require.ErrorAs(t, err, &target)
-				require.Equal(t, bip3x.FirstHardenedChild, target.Got)
+				require.Equal(t, bip32.FirstHardenedChild, target.Got)
 			},
 		},
 	}

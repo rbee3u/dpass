@@ -1,4 +1,4 @@
-package bip3x
+package bip32
 
 import "testing"
 

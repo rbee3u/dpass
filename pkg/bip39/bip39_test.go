@@ -1,4 +1,4 @@
-package bip3x_test
+package bip39_test
 
 import (
 	"crypto/rand"
@@ -9,14 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip39"
 )
 
 func TestCreateEntropyRandomly(t *testing.T) {
-	for s := bip3x.EntropyBitsMin; s <= bip3x.EntropyBitsMax; s += bip3x.EntropyBitsStep {
-		entropy, err := bip3x.CreateEntropyRandomly(s)
+	for s := bip39.EntropyBitsMin; s <= bip39.EntropyBitsMax; s += bip39.EntropyBitsStep {
+		entropy, err := bip39.CreateEntropyRandomly(s)
 		require.NoError(t, err)
-		require.Len(t, entropy, s/bip3x.BitsPerByte)
+		require.Len(t, entropy, s/bip39.BitsPerByte)
 	}
 }
 
@@ -31,7 +31,7 @@ func TestCreateEntropyRandomlyErrors(t *testing.T) {
 			name: "too small",
 			bits: 64,
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 64, target.Bits)
 			},
@@ -40,7 +40,7 @@ func TestCreateEntropyRandomlyErrors(t *testing.T) {
 			name: "too large",
 			bits: 288,
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 288, target.Bits)
 			},
@@ -49,14 +49,14 @@ func TestCreateEntropyRandomlyErrors(t *testing.T) {
 			name: "not aligned",
 			bits: 140,
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 140, target.Bits)
 			},
 		},
 		{
 			name: "reader failure",
-			bits: bip3x.EntropyBitsMin,
+			bits: bip39.EntropyBitsMin,
 			setup: func(t *testing.T) {
 				t.Helper()
 				oldReader := rand.Reader
@@ -75,7 +75,7 @@ func TestCreateEntropyRandomlyErrors(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t)
 			}
-			entropy, err := bip3x.CreateEntropyRandomly(tt.bits)
+			entropy, err := bip39.CreateEntropyRandomly(tt.bits)
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Nil(t, entropy)
@@ -214,7 +214,7 @@ func TestEntropyToMnemonic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entropy, err := hex.DecodeString(tt.hexEntropy)
 			require.NoError(t, err)
-			mnemonic, err := bip3x.EntropyToMnemonic(entropy)
+			mnemonic, err := bip39.EntropyToMnemonic(entropy)
 			require.NoError(t, err)
 			require.Equal(t, tt.mnemonic, mnemonic)
 		})
@@ -231,7 +231,7 @@ func TestEntropyToMnemonicErrors(t *testing.T) {
 			name:    "too short",
 			entropy: make([]byte, 12),
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 96, target.Bits)
 			},
@@ -240,7 +240,7 @@ func TestEntropyToMnemonicErrors(t *testing.T) {
 			name:    "too long",
 			entropy: make([]byte, 36),
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 288, target.Bits)
 			},
@@ -249,7 +249,7 @@ func TestEntropyToMnemonicErrors(t *testing.T) {
 			name:    "not aligned",
 			entropy: make([]byte, 17),
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidEntropyBitsError
+				var target bip39.InvalidEntropyBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 136, target.Bits)
 			},
@@ -257,7 +257,7 @@ func TestEntropyToMnemonicErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mnemonic, err := bip3x.EntropyToMnemonic(tt.entropy)
+			mnemonic, err := bip39.EntropyToMnemonic(tt.entropy)
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Empty(t, mnemonic)
@@ -394,7 +394,7 @@ func TestMnemonicToSeed(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			seed, err := bip3x.MnemonicToSeed(tt.mnemonic, "TREZOR")
+			seed, err := bip39.MnemonicToSeed(tt.mnemonic, "TREZOR")
 			require.NoError(t, err)
 			require.Equal(t, tt.hexSeed, hex.EncodeToString(seed))
 		})
@@ -411,7 +411,7 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			name:     "too few words",
 			mnemonic: "abandon abandon abandon",
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidSentenceBitsError
+				var target bip39.InvalidSentenceBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 33, target.Bits)
 			},
@@ -420,7 +420,7 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			name:     "too many words",
 			mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidSentenceBitsError
+				var target bip39.InvalidSentenceBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 275, target.Bits)
 			},
@@ -429,7 +429,7 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			name:     "wrong word count alignment",
 			mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon",
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.InvalidSentenceBitsError
+				var target bip39.InvalidSentenceBitsError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, 143, target.Bits)
 			},
@@ -438,7 +438,7 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			name:     "unknown word",
 			mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon zzzzz",
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.WordNotFoundError
+				var target bip39.WordNotFoundError
 				require.ErrorAs(t, err, &target)
 				require.Equal(t, "zzzzz", target.Word)
 			},
@@ -447,14 +447,14 @@ func TestMnemonicToSeedErrors(t *testing.T) {
 			name:     "bad checksum",
 			mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
 			requireErr: func(t *testing.T, err error) {
-				var target bip3x.DigestMismatchError
+				var target bip39.DigestMismatchError
 				require.ErrorAs(t, err, &target)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			seed, err := bip3x.MnemonicToSeed(tt.mnemonic, "")
+			seed, err := bip39.MnemonicToSeed(tt.mnemonic, "")
 			require.Error(t, err)
 			tt.requireErr(t, err)
 			require.Nil(t, seed)

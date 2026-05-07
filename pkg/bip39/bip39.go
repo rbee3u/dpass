@@ -1,4 +1,5 @@
-package bip3x
+// Package bip39 implements BIP-39 entropy, mnemonic, and seed helpers.
+package bip39
 
 import (
 	"crypto/rand"

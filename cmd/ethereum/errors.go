@@ -3,7 +3,7 @@ package ethereum
 import (
 	"fmt"
 
-	"github.com/rbee3u/dpass/pkg/bip3x"
+	"github.com/rbee3u/dpass/pkg/bip32"
 )
 
 // invalidAccountError reports a --account flag that would exceed the hardened boundary.
@@ -13,7 +13,7 @@ type invalidAccountError struct {
 }
 
 func (e invalidAccountError) Error() string {
-	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid account (got %d, must be < %d)", e.Got, bip32.FirstHardenedChild)
 }
 
 // invalidIndexError reports a --index flag that would exceed the hardened boundary.
@@ -23,5 +23,5 @@ type invalidIndexError struct {
 }
 
 func (e invalidIndexError) Error() string {
-	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip3x.FirstHardenedChild)
+	return fmt.Sprintf("invalid index (got %d, must be < %d)", e.Got, bip32.FirstHardenedChild)
 }

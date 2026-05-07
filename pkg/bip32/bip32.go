@@ -1,4 +1,5 @@
-package bip3x
+// Package bip32 implements BIP-32 and SLIP-0010 child-key derivation helpers.
+package bip32
 
 import (
 	"bytes"
