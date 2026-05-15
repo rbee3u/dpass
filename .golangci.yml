@@ -1,47 +1,73 @@
-version: '2'
+version: "2"
 
 run:
   tests: false
 
 linters:
-  default: 'all'
-  disable: [ 'wsl' ]
-  exclusions:
-    paths:
-      - 'third_party'
-    rules:
-      - path: '^.*\.go$'
-        linters:
-          - 'gochecknoglobals'
-          - 'intrange'
-          - 'noinlineerr'
-          - 'nonamedreturns'
+  default: none
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - gosec
+    - gosmopolitan
+    - govet
+    - ineffassign
+    - iotamixing
+    - loggercheck
+    - makezero
+    - mirror
+    - musttag
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - prealloc
+    - predeclared
+    - protogetter
+    - reassign
+    - recvcheck
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unqueryvet
+    - unused
+    - wastedassign
+    - zerologlint
   settings:
-    cyclop:
-      max-complexity: 100
-    depguard:
-      rules:
-        main:
-          allow:
-            - '$gostd'
-            - 'github.com/rbee3u/dpass'
-            - 'github.com/spf13/cobra'
-            - 'golang.org/x/crypto'
-            - 'golang.org/x/term'
-            - 'rsc.io/qr'
-    exhaustruct:
-      exclude: [ '^.*$' ]
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
     gosec:
-      excludes: [ 'G115', 'G406', 'G507', 'G602' ]
-    mnd:
-      ignored-files: [ '^.*\.go$' ]
-    nlreturn:
-      block-size: 1000
-    revive:
-      rules: [ { name: 'exported', disabled: true } ]
+      excludes:
+        - G115
+        - G406
+        - G507
     staticcheck:
-      checks: [ "all", "-SA1019", "-ST1000" ]
-    varnamelen:
-      min-name-length: 1
-    wsl_v5:
-      default: 'none'
+      checks:
+        - SA*
+        - -SA1019

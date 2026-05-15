@@ -1,0 +1,59 @@
+// Package main wires the dpass CLI and its subcommands.
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/rbee3u/dpass/cmd/aes256"
+	"github.com/rbee3u/dpass/cmd/bitcoin"
+	"github.com/rbee3u/dpass/cmd/dogecoin"
+	"github.com/rbee3u/dpass/cmd/ethereum"
+	"github.com/rbee3u/dpass/cmd/mnemonic"
+	"github.com/rbee3u/dpass/cmd/qrcode"
+	"github.com/rbee3u/dpass/cmd/shamir"
+	"github.com/rbee3u/dpass/cmd/solana"
+	"github.com/rbee3u/dpass/cmd/sui"
+	"github.com/rbee3u/dpass/cmd/tron"
+)
+
+const version = "v1.6.0"
+
+func main() {
+	cmd := &cobra.Command{
+		Use:   "dpass",
+		Short: "CLI toolkit for secret sharing, encryption, mnemonics, and multi-chain key derivation",
+		Long: "dpass is a CLI toolkit that protects secrets with Shamir splitting and AES-256-GCM\n" +
+			"encryption, generates BIP-39 mnemonics, and derives addresses or private keys for\n" +
+			"Bitcoin, Ethereum, Tron, Solana, Dogecoin, and Sui.",
+		Example: "  printf 'hello' | dpass encrypt\n" +
+			"  printf 'correct horse battery staple' | dpass split -o share -n 5 -m 3\n" +
+			"  cat share-5-3-0.txt share-5-3-1.txt share-5-3-2.txt | dpass combine\n" +
+			"  printf '0123abcd' | dpass decrypt\n" +
+			"  dpass mnemonic | dpass bitcoin",
+		Args:          cobra.NoArgs,
+		Version:       version,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+	cmd.AddCommand(
+		aes256.NewCmdEncrypt(),
+		aes256.NewCmdDecrypt(),
+		shamir.NewCmdSplit(),
+		shamir.NewCmdCombine(),
+		qrcode.NewCmd(),
+		mnemonic.NewCmd(),
+		bitcoin.NewCmd(),
+		ethereum.NewCmd(),
+		tron.NewCmd(),
+		solana.NewCmd(),
+		dogecoin.NewCmd(),
+		sui.NewCmd(),
+	)
+	if err := cmd.Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

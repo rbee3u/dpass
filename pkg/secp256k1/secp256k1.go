@@ -1,3 +1,4 @@
+// Package secp256k1 implements the secp256k1 elliptic curve operations.
 package secp256k1
 
 import (
@@ -5,8 +6,14 @@ import (
 	"math/big"
 )
 
-type Curve struct{ *elliptic.CurveParams }
+// Curve implements elliptic.Curve for secp256k1.
+type Curve struct {
+	// CurveParams carries the secp256k1 domain parameters in the standard
+	// library form.
+	*elliptic.CurveParams
+}
 
+// IsOnCurve reports whether (x, y) is a finite affine point on secp256k1.
 func (curve *Curve) IsOnCurve(x, y *big.Int) bool {
 	if x.Sign() < 0 || x.Cmp(curve.P) >= 0 || y.Sign() < 0 || y.Cmp(curve.P) >= 0 {
 		return false
@@ -17,15 +24,17 @@ func (curve *Curve) IsOnCurve(x, y *big.Int) bool {
 	xPart.Mod(xPart, curve.P)
 	yPart := new(big.Int).Mul(y, y)
 	yPart.Mod(yPart, curve.P)
-	return xPart.Cmp(yPart) == 0 // check if `x`, `y` satisfy `x^3 + b = y^2 (mod p)`
+	return xPart.Cmp(yPart) == 0 // x^3 + b ≡ y^2 (mod p)
 }
 
+// Add returns the affine sum of two points. The sentinel (0, 0) denotes the
+// point at infinity. It panics if any other input point is not on the curve.
 func (curve *Curve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	if (x1.Sign() != 0 || y1.Sign() != 0) && !curve.IsOnCurve(x1, y1) {
-		panic("attempted operation on invalid point(x1, y1)")
+		panic("secp256k1: attempted operation on invalid point(x1, y1)")
 	}
 	if (x2.Sign() != 0 || y2.Sign() != 0) && !curve.IsOnCurve(x2, y2) {
-		panic("attempted operation on invalid point(x2, y2)")
+		panic("secp256k1: attempted operation on invalid point(x2, y2)")
 	}
 	if x1.Sign() == 0 && y1.Sign() == 0 {
 		return new(big.Int).Set(x2), new(big.Int).Set(y2)
@@ -65,10 +74,16 @@ func (curve *Curve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 	return x3, y3
 }
 
+// Double returns the affine point 2*(x1, y1). The sentinel (0, 0) denotes the
+// point at infinity. It panics if any other input point is not on the curve.
 func (curve *Curve) Double(x1, y1 *big.Int) (*big.Int, *big.Int) {
 	return curve.Add(x1, y1, x1, y1)
 }
 
+// ScalarMult returns k*(x1, y1) using left-to-right double-and-add over k. A
+// zero scalar yields the point-at-infinity sentinel (0, 0). The sentinel (0, 0)
+// is also accepted as the input point at infinity. It panics if any other input
+// point is not on the curve.
 func (curve *Curve) ScalarMult(x1, y1 *big.Int, k []byte) (*big.Int, *big.Int) {
 	x, y := new(big.Int), new(big.Int)
 	for _, b := range k {
@@ -82,19 +97,21 @@ func (curve *Curve) ScalarMult(x1, y1 *big.Int, k []byte) (*big.Int, *big.Int) {
 	return x, y
 }
 
+// ScalarBaseMult returns k*G for the standard secp256k1 generator G.
 func (curve *Curve) ScalarBaseMult(k []byte) (*big.Int, *big.Int) {
 	return curve.ScalarMult(curve.Gx, curve.Gy, k)
 }
 
+// S256 returns the shared secp256k1 curve instance.
 func S256() *Curve { return s256 }
 
 var s256 = &Curve{CurveParams: &elliptic.CurveParams{
 	Name: "secp256k1", BitSize: 256,
-	P:  convertHexToBig("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F"),
-	N:  convertHexToBig("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"),
+	P:  convertHexToBig("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),
+	N:  convertHexToBig("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),
 	B:  convertHexToBig("0000000000000000000000000000000000000000000000000000000000000007"),
-	Gx: convertHexToBig("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"),
-	Gy: convertHexToBig("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"),
+	Gx: convertHexToBig("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+	Gy: convertHexToBig("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"),
 }}
 
 func convertHexToBig(s string) *big.Int {

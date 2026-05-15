@@ -1,87 +1,180 @@
 # dpass [![License](https://img.shields.io/badge/license-BSD%202--Clause-green.svg)](https://opensource.org/licenses/BSD-2-Clause) [![Build Status](https://github.com/rbee3u/dpass/actions/workflows/build.yml/badge.svg)](https://github.com/rbee3u/dpass/actions?query=branch%3Amain)
 
-## dpass
+English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
 
-### 安装
+`dpass` is a command-line tool that protects secrets by splitting them into threshold-based Shamir shares, with an optional encryption pass beforehand. Encrypt first if you want that extra layer, then split the result; later, combine enough shares to recover the original data and decrypt it if needed.
+
+A common use case is protecting cryptocurrency wallet mnemonics. For that workflow, `dpass` ships helpers that generate BIP-39 mnemonics, derive addresses or private keys across multiple chains, and render importable results straight to a terminal QR code.
+
+## Why This Exists
+
+For some people, cryptocurrency isn't really about speculation. It's about
+portability and self-custody. When a crisis hits, a relocation is forced
+upon you, or local institutions stop being reliable, digitally portable
+assets can be among the few things that still travel with you across
+borders. But that portability solves one problem and creates another: how
+do you protect the secret that controls the asset without turning it into
+a single point of failure?
+
+`dpass` is built around a simple answer:
+
+- Why not just leave assets on an exchange? Because that hands custody back
+  to an institution. If the goal is sovereign control, an exchange isn't a
+  real long-term answer.
+- Why not write the seed or private key on paper? A single physical copy
+  can be stolen, damaged, or lost.
+- Why not stash it in the cloud or a password manager? Those services can
+  still leak the secret, lock you out, or quietly become another single
+  point of compromise.
+- What does this project recommend instead? Encrypt the mnemonic or
+  private key first, split the result into threshold shares, and store
+  those shares separately with deliberate redundancy.
+
+That is the workflow `dpass` is designed to support.
+
+## Features
+
+- Optionally encrypt anything from stdin with AES-256-GCM.
+- Split plaintext or ciphertext into threshold-based Shamir shares.
+- Recover the protected data by combining shares, and decrypt the result when needed.
+- Generate BIP-39 mnemonics for wallet workflows.
+- Derive addresses or private keys for Bitcoin, Ethereum, Tron, Solana, Dogecoin, and Sui.
+- Render addresses, private keys, or other payloads as terminal QR codes.
+
+## Installation
+
 ```shell
-go install github.com/rbee3u/dpass/cmd/dpass@latest
+go install github.com/rbee3u/dpass@v1.6.0
 ```
 
-### 配置自动补全
+## Command Overview
+
+- `encrypt` / `decrypt`: Run stdin through AES-256-GCM with a password-derived key.
+- `split` / `combine`: Split stdin into PEM-encoded Shamir shares, or fold shares from stdin back into the original data.
+- `mnemonic`: Generate a random BIP-39 mnemonic.
+- `bitcoin`, `ethereum`, `tron`, `solana`, `dogecoin`, `sui`: Read a mnemonic from stdin and derive that chain's address or private key.
+- `qrcode`: Render stdin as a terminal QR code.
+- `completion`: Generate shell completion scripts.
+
+Run `dpass --help` for the top-level command list, or `dpass <command> --help` for the flags of a single command.
+
+Most commands read from stdin and write to stdout, so they pipe together naturally.
+
+## Workflow
+
+A typical protect-and-recover flow looks like this:
+
+1. Prepare the secret you want to protect.
+2. Optionally encrypt it with `dpass encrypt` for an extra layer.
+3. Split the plaintext or ciphertext with `dpass split`.
+4. Store each share in a different place.
+5. Later, gather enough shares to meet the threshold.
+6. Recover the data with `dpass combine`.
+7. If what you got back is ciphertext, decrypt it with `dpass decrypt`.
+
+With `split -o <prefix>`, output files are written as `<prefix>-<parts>-<threshold>-<index>.txt`.
+
+The examples below follow this same flow and are meant to be copy-pasted as-is.
+
+## Examples
+
+### Protect Any Secret
+
+Encrypt first, then split:
+
 ```shell
-# zsh 示例
+printf '%s' 'my sensitive data' | dpass encrypt | dpass split -o secret -n 5 -m 3
+```
+
+Skip encryption and split the plaintext directly:
+
+```shell
+printf '%s' 'my sensitive data' | dpass split -o secret -n 5 -m 3
+```
+
+Recover the encrypted data from any share set that meets the threshold, then decrypt it:
+
+```shell
+cat secret-5-3-0.txt secret-5-3-1.txt secret-5-3-2.txt | dpass combine | dpass decrypt
+```
+
+Recover plaintext that was split without encryption:
+
+```shell
+cat secret-5-3-0.txt secret-5-3-1.txt secret-5-3-2.txt | dpass combine
+```
+
+### Protect a Wallet Mnemonic
+
+Generate a mnemonic, encrypt it, and split the ciphertext into nine shares with a threshold of four:
+
+```shell
+dpass mnemonic | dpass encrypt | dpass split -o wallet-cold -n 9 -m 4
+```
+
+Recover the mnemonic, derive a Bitcoin address, and render it as a QR code:
+
+```shell
+cat wallet-cold-9-4-0.txt wallet-cold-9-4-1.txt wallet-cold-9-4-2.txt wallet-cold-9-4-3.txt | \
+  dpass combine | dpass decrypt | dpass bitcoin | dpass qrcode
+```
+
+Same flow, but derive the Bitcoin private key (WIF) instead and render that as a QR code:
+
+```shell
+cat wallet-cold-9-4-0.txt wallet-cold-9-4-1.txt wallet-cold-9-4-2.txt wallet-cold-9-4-3.txt | \
+  dpass combine | dpass decrypt | dpass bitcoin --secret | dpass qrcode
+```
+
+Recover the mnemonic and derive an Ethereum address:
+
+```shell
+cat wallet-cold-9-4-0.txt wallet-cold-9-4-1.txt wallet-cold-9-4-2.txt wallet-cold-9-4-3.txt | \
+  dpass combine | dpass decrypt | dpass ethereum
+```
+
+## Shell Completion
+
+`dpass` can generate completion scripts for several shells. The snippets below show how to load completions for the current session or install them permanently.
+
+### Zsh
+
+```shell
+# install once
 dpass completion zsh > "${fpath[1]}/_dpass"
 ```
 
-## dcoin
-
-### 安装
-```shell
-go install github.com/rbee3u/dpass/cmd/dcoin@latest
-```
-
-### 配置自动补全
-```shell
-# zsh 示例
-dcoin completion zsh > "${fpath[1]}/_dcoin"
-```
-
-## Q & A
-
-### Q: 为什么你需要加密货币?
-A: 在时代的洪流里面个体是非常脆弱的，将来的某一天(但愿永远不会)你可能会面临绝境，不得不背井离乡。房产和贵重金属无法携带，纸币和银行储蓄变得一文不值。为什么你需要加密货币，因为你需要一种可靠的资产转移手段。
-
-### Q: 加密货币能放交易所吗?
-A: 能，但这和把黄金存银行没有本质区别。
-
-### Q: 私钥为什么不要直接保存在纸上?
-A: 风险1. 容易泄漏；风险2. 容易遗失。
-
-### Q: 私钥为什么不要直接保存在云上?
-A: 风险1. 更容易泄漏；风险2. 更容易遗失。
-
-### Q: 保存到1PASS这类密码管理器呢?
-A: 风险1. 没有开源；风险2. 密码泄漏。
-
-### Q: 那私钥到底应该如何保存?
-A: 加密 & 拆分 & 冗余。
-
-### Q: 如何加密?
-A: 先用 argon2 派生再用 aes256 加密。
-
-### Q: 如何拆分?
-A: 使用 shamir 算法拆成碎片。
-
-### Q: 如何冗余?
-A: 不同碎片分散存储，相同碎片做好备份。
-
-### 
-
-## 推荐使用场景
-```shell
-# 1. 生成一个冷钱包助记词
-# 2. 将这个助记词进行加密
-# 3. 将密文分解成9个碎片(任意4个碎片可以合成)
-# 4. 将这9个碎片分散存储
-dcoin mnemonic | dpass encrypt | dpass split -o wallet-cold -n 9 -m 4
-```
+### Bash
 
 ```shell
-# 1. 集齐任意4个密文碎片
-# 2. 将碎片合成得到密文
-# 3. 解密得到助记词明文
-# 4. 使用助记词计算BTC地址
-# 5. 将BTC地址转换成二维码(用于导入观察钱包)
-cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin bitcoin | dpass qrcode
+# load for the current session
+source <(dpass completion bash)
+
+# install once on Linux
+dpass completion bash > /etc/bash_completion.d/dpass
+
+# install once on macOS with Homebrew
+dpass completion bash > "$(brew --prefix)/etc/bash_completion.d/dpass"
 ```
+
+### Fish
 
 ```shell
-# 1. 集齐任意4个密文碎片
-# 2. 将碎片合成得到密文
-# 3. 解密得到助记词明文
-# 4. 使用助记词计算BTC私钥
-# 5. 将BTC私钥转换成二维码(用于导入冷钱包)
-cat wallet-cold-9-4-* | dpass combine | dpass decrypt | dcoin bitcoin --secret | dpass qrcode
+# load for the current session
+dpass completion fish | source
+
+# install once
+dpass completion fish > ~/.config/fish/completions/dpass.fish
 ```
 
-当然 dpass 和 dcoin 能做的事情远不止上面，更多的使用场景欢迎高端玩家尽情探索。
+### PowerShell
+
+```shell
+# load for the current session
+dpass completion powershell | Out-String | Invoke-Expression
+
+# install once
+dpass completion powershell > "$HOME/dpass.ps1"
+# then add this line to your PowerShell profile ($PROFILE):
+. "$HOME/dpass.ps1"
+```
