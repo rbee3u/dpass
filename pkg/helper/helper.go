@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"syscall"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/term"
@@ -27,7 +26,7 @@ var (
 // appends a trailing newline after a successful read. When stdin is not a TTY,
 // it reads from /dev/tty so callers can keep stdin reserved for piped command data.
 func ReadPassword(prompt string) (password []byte, err error) {
-	fd, promptWriter := syscall.Stdin, io.Writer(os.Stderr)
+	fd, promptWriter := int(os.Stdin.Fd()), io.Writer(os.Stderr)
 	if !isTerminal(fd) {
 		var terminal *os.File
 		if terminal, err = openTerminal(); err != nil {

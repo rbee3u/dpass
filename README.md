@@ -43,6 +43,39 @@ That is the workflow `dpass` is designed to support.
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+Install via the project tap:
+
+```shell
+brew tap rbee3u/dpass
+brew install dpass
+```
+
+Upgrade to the latest release later with:
+
+```shell
+brew upgrade dpass
+```
+
+### Pre-built binaries
+
+Linux and macOS binaries (amd64 and arm64) are published on the
+[Releases page](https://github.com/rbee3u/dpass/releases). Download the
+archive for your OS and architecture, extract it, and drop `dpass`
+somewhere on your `PATH`.
+
+```shell
+tar -xzf dpass_<version>_<os>_<arch>.tar.gz
+sudo mv dpass /usr/local/bin/
+dpass --version
+```
+
+Every release also ships `dpass_<version>_checksums.txt`, so you can verify
+downloads with `sha256sum -c`.
+
+### Install from source
+
 ```shell
 go install github.com/rbee3u/dpass@v1.6.0
 ```
@@ -165,16 +198,4 @@ dpass completion fish | source
 
 # install once
 dpass completion fish > ~/.config/fish/completions/dpass.fish
-```
-
-### PowerShell
-
-```shell
-# load for the current session
-dpass completion powershell | Out-String | Invoke-Expression
-
-# install once
-dpass completion powershell > "$HOME/dpass.ps1"
-# then add this line to your PowerShell profile ($PROFILE):
-. "$HOME/dpass.ps1"
 ```

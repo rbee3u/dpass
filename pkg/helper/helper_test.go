@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,7 +59,7 @@ func TestReadPassword(t *testing.T) {
 		password, err := helper.ReadPassword("Enter password: ")
 		require.NoError(t, err)
 		testx.EqualSlice(t, []byte("secret"), password)
-		require.Equal(t, syscall.Stdin, gotFd)
+		require.Equal(t, int(os.Stdin.Fd()), gotFd)
 		require.NoError(t, promptWriter.Close())
 		prompt, err := io.ReadAll(promptReader)
 		require.NoError(t, err)

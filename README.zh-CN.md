@@ -30,6 +30,35 @@
 
 ## 安装
 
+### Homebrew（macOS / Linux）
+
+通过项目 tap 安装：
+
+```shell
+brew tap rbee3u/dpass
+brew install dpass
+```
+
+后续升级到新版本：
+
+```shell
+brew upgrade dpass
+```
+
+### 预编译二进制
+
+每次发版都会在 [Releases 页面](https://github.com/rbee3u/dpass/releases) 放出 Linux 和 macOS 上 amd64、arm64 架构的预编译二进制。挑一份对应你系统的压缩包，解压后把 `dpass` 放到 `PATH` 下就能用。
+
+```shell
+tar -xzf dpass_<version>_<os>_<arch>.tar.gz
+sudo mv dpass /usr/local/bin/
+dpass --version
+```
+
+每个版本还会附一份 `dpass_<version>_checksums.txt`，可以用 `sha256sum -c` 校验下载是否完整。
+
+### 从源码安装
+
 ```shell
 go install github.com/rbee3u/dpass@v1.6.0
 ```
@@ -152,16 +181,4 @@ dpass completion fish | source
 
 # 一次性安装
 dpass completion fish > ~/.config/fish/completions/dpass.fish
-```
-
-### PowerShell
-
-```shell
-# 在当前会话中加载
-dpass completion powershell | Out-String | Invoke-Expression
-
-# 一次性安装
-dpass completion powershell > "$HOME/dpass.ps1"
-# 然后把下面这一行加入你的 PowerShell 配置文件 ($PROFILE)：
-. "$HOME/dpass.ps1"
 ```

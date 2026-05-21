@@ -1,0 +1,25 @@
+version: 2
+
+builds:
+  - goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+brews:
+  - repository:
+      owner: rbee3u
+      name: homebrew-dpass
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    description: CLI toolkit for secret sharing, encryption, mnemonics, and multi-chain key derivation.
+    license: BSD-2-Clause
+    install: |
+      bin.install "dpass"
+      generate_completions_from_executable(bin/"dpass", "completion")
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/dpass --version")
+    skip_upload: auto

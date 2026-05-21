@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 
@@ -19,7 +20,21 @@ import (
 	"github.com/rbee3u/dpass/cmd/tron"
 )
 
-const version = "v1.6.0"
+// version is overridden at link time via -ldflags "-X main.version=...".
+var version string
+
+func init() {
+	if len(version) != 0 && version != "(devel)" {
+		return
+	}
+	if info, _ := debug.ReadBuildInfo(); info != nil {
+		version = info.Main.Version
+	}
+	if len(version) != 0 && version != "(devel)" {
+		return
+	}
+	version = "dev"
+}
 
 func main() {
 	cmd := &cobra.Command{
