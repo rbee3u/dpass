@@ -33,7 +33,7 @@ func init() {
 	if len(version) != 0 && version != "(devel)" {
 		return
 	}
-	version = "dev"
+	version = "unknown"
 }
 
 func main() {

@@ -1,4 +1,4 @@
-# dpass [![License](https://img.shields.io/badge/license-BSD%202--Clause-green.svg)](https://opensource.org/licenses/BSD-2-Clause) [![Build Status](https://github.com/rbee3u/dpass/actions/workflows/build.yml/badge.svg)](https://github.com/rbee3u/dpass/actions?query=branch%3Amain)
+# dpass [![License](https://img.shields.io/badge/license-BSD%202--Clause-green.svg)](https://opensource.org/licenses/BSD-2-Clause) [![Build Status](https://github.com/rbee3u/dpass/actions/workflows/build.yml/badge.svg)](https://github.com/rbee3u/dpass/actions/workflows/build.yml?query=branch%3Amain)
 
 English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
 
@@ -77,7 +77,7 @@ downloads with `sha256sum -c`.
 ### Install from source
 
 ```shell
-go install github.com/rbee3u/dpass@v1.6.0
+go install github.com/rbee3u/dpass@v1.6.2
 ```
 
 ## Command Overview
@@ -168,14 +168,22 @@ cat wallet-cold-9-4-0.txt wallet-cold-9-4-1.txt wallet-cold-9-4-2.txt wallet-col
 
 ## Shell Completion
 
-`dpass` can generate completion scripts for several shells. The snippets below show how to load completions for the current session or install them permanently.
+If you installed `dpass` via Homebrew, completions are already wired up — Homebrew drops them into its own completion directory and `brew upgrade` keeps them in sync. You can skip this section.
+
+For other installs (`go install`, prebuilt binaries, etc.), generate the script yourself and put it where your shell looks for completions. Each shell below shows both a current-session load and a permanent install.
 
 ### Zsh
 
 ```shell
-# install once
-dpass completion zsh > "${fpath[1]}/_dpass"
+# load for the current session
+source <(dpass completion zsh)
+
+# install permanently: append the same line to the end of ~/.zshrc
 ```
+
+Frameworks like Oh My Zsh and Prezto initialize the completion system for you, so appending the line to `~/.zshrc` is enough. On a plain zsh setup that does not initialize completions, prepend `autoload -Uz compinit && compinit` once before the `source` line.
+
+Avoid `dpass completion zsh > "${fpath[1]}/_dpass"`: `fpath[1]` resolves to whatever directory happens to come first at that moment — often an unrelated plugin folder such as one inside Oh My Zsh — so the file can end up somewhere that shadows future updates from your package manager.
 
 ### Bash
 
@@ -183,12 +191,11 @@ dpass completion zsh > "${fpath[1]}/_dpass"
 # load for the current session
 source <(dpass completion bash)
 
-# install once on Linux
+# install permanently on Linux
 dpass completion bash > /etc/bash_completion.d/dpass
-
-# install once on macOS with Homebrew
-dpass completion bash > "$(brew --prefix)/etc/bash_completion.d/dpass"
 ```
+
+On macOS, bash completions ride on top of the Homebrew `bash-completion` package, and `brew install dpass` already drops the script into the right place, so no manual command is needed here.
 
 ### Fish
 
@@ -196,6 +203,6 @@ dpass completion bash > "$(brew --prefix)/etc/bash_completion.d/dpass"
 # load for the current session
 dpass completion fish | source
 
-# install once
+# install permanently
 dpass completion fish > ~/.config/fish/completions/dpass.fish
 ```

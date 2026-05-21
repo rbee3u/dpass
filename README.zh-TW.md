@@ -1,4 +1,4 @@
-# dpass [![License](https://img.shields.io/badge/license-BSD%202--Clause-green.svg)](https://opensource.org/licenses/BSD-2-Clause) [![Build Status](https://github.com/rbee3u/dpass/actions/workflows/build.yml/badge.svg)](https://github.com/rbee3u/dpass/actions?query=branch%3Amain)
+# dpass [![License](https://img.shields.io/badge/license-BSD%202--Clause-green.svg)](https://opensource.org/licenses/BSD-2-Clause) [![Build Status](https://github.com/rbee3u/dpass/actions/workflows/build.yml/badge.svg)](https://github.com/rbee3u/dpass/actions/workflows/build.yml?query=branch%3Amain)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文
 
@@ -60,7 +60,7 @@ dpass --version
 ### 從原始碼安裝
 
 ```shell
-go install github.com/rbee3u/dpass@v1.6.0
+go install github.com/rbee3u/dpass@v1.6.2
 ```
 
 ## 命令概覽
@@ -151,34 +151,41 @@ cat wallet-cold-9-4-0.txt wallet-cold-9-4-1.txt wallet-cold-9-4-2.txt wallet-col
 
 ## Shell 自動補全
 
-`dpass` 能為多種 shell 產生自動補全腳本。下方分別示範「僅在目前工作階段生效」與「永久安裝」兩種做法。
+若你以 Homebrew 安裝 `dpass`，補全腳本已自動安裝好——Homebrew 會把它放進自己管理的補全目錄，並隨 `brew upgrade` 一起更新，本節可直接略過。
+
+其他安裝方式（`go install`、預先編譯的壓縮檔等）需要自行產生腳本，並放到對應 shell 搜尋補全的目錄下。下方每種 shell 都給出「僅在目前工作階段載入」與「永久安裝」兩種寫法。
 
 ### Zsh
 
 ```shell
-# 一次性安裝
-dpass completion zsh > "${fpath[1]}/_dpass"
+# 僅在目前工作階段載入
+source <(dpass completion zsh)
+
+# 永久安裝：把上面這行追加到 ~/.zshrc 末尾即可
 ```
+
+Oh My Zsh、Prezto 這類框架會自動初始化補全系統，所以追加到 `~/.zshrc` 就夠用了。若你用的是沒有初始化補全的純淨 zsh，只需在那行 `source` 之前補一次 `autoload -Uz compinit && compinit`。
+
+請勿再使用 `dpass completion zsh > "${fpath[1]}/_dpass"` 這種寫法：`fpath[1]` 會隨當下 shell 與外掛載入順序而變，常常落到毫不相關的外掛目錄（例如 Oh My Zsh 某個內建外掛），把補全檔案寫到奇怪的位置，並把後續套件管理工具（如 Homebrew）安裝的新版本蓋在底下。
 
 ### Bash
 
 ```shell
-# 在目前工作階段載入
+# 僅在目前工作階段載入
 source <(dpass completion bash)
 
-# Linux 上一次性安裝
+# Linux 上永久安裝
 dpass completion bash > /etc/bash_completion.d/dpass
-
-# 在裝有 Homebrew 的 macOS 上一次性安裝
-dpass completion bash > "$(brew --prefix)/etc/bash_completion.d/dpass"
 ```
+
+在 macOS 上，bash 補全本身就建立在 Homebrew 的 `bash-completion` 套件之上，而 `brew install dpass` 已經把腳本放進該套件要求的目錄，因此這裡不再單獨列手動指令。
 
 ### Fish
 
 ```shell
-# 在目前工作階段載入
+# 僅在目前工作階段載入
 dpass completion fish | source
 
-# 一次性安裝
+# 永久安裝
 dpass completion fish > ~/.config/fish/completions/dpass.fish
 ```
