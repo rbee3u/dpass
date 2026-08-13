@@ -1,14 +1,14 @@
 MODULE := $(shell go list -m)
 
-.PHONY: all deps style format build test lint release
+.PHONY: all deps style format build test lint
 
 all: format build test lint
 
 deps:
-	go install mvdan.cc/gofumpt@v0.10.0 && \
-	go install golang.org/x/tools/cmd/goimports@v0.45.0 && \
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 && \
-	go install github.com/goreleaser/goreleaser/v2@v2.15.4
+	go install golang.org/x/tools/cmd/goimports@v0.48.0
+	go install mvdan.cc/gofumpt@v0.11.0
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+	go install github.com/goreleaser/goreleaser/v2@v2.17.1
 
 style:
 	@files="$$(goimports -local $(MODULE) -l .)"; \
@@ -30,6 +30,3 @@ test:
 
 lint:
 	golangci-lint run
-
-release:
-	goreleaser release --snapshot --clean
